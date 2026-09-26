@@ -1,0 +1,444 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------
+   Drinvo design tokens — clean, minimal SaaS system.
+   Flat white surfaces on a very light neutral page, subtle borders,
+   quiet shadows, one restrained brand green. No blur, no gradients
+   baked into surfaces — colour is spent only where it means something.
+   Light palette on :root, dark palette via prefers-color-scheme.
+   Components only use these tokens, so both themes stay consistent.
+   --------------------------------------------------------------- */
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --surface-3: #eef0f4;
+  --surface-solid: #ffffff;
+  --glass-highlight: rgba(255, 255, 255, 0);
+  --glass-blur: 0px;
+
+  --line: #e7e9ef;
+  --line-2: #eef0f4;
+  --ink: #111827;
+  --ink-2: #4b5563;
+  --ink-3: #99a1ae;
+  --brand: #047857;
+  --brand-2: #059669;
+  --brand-3: #10b981;
+  --brand-soft: #e7f5ee;
+  --brand-ink: #065f46;
+  --on-brand: #ffffff;
+  --hero: #0a1712;
+  --hero-2: #133226;
+  --hero-3: #1c4534;
+  --on-hero: #eef6f1;
+  --on-hero-2: #9bb8ab;
+  --ok: #16a34a;
+  --ok-soft: #eaf7ee;
+  --warn: #b45309;
+  --warn-soft: #fdf1de;
+  --bad: #dc2626;
+  --bad-soft: #fdecec;
+  --info: #2563eb;
+  --info-soft: #eaf1fe;
+  --c-rev: #059669;
+  --c-cost: #9aa1ae;
+  --c-profit: #7c5cf0;
+
+  --shadow: 0 1px 2px rgba(16, 24, 32, 0.04), 0 1px 1px rgba(16, 24, 32, 0.03);
+  --shadow-lg: 0 20px 44px -16px rgba(16, 24, 32, 0.16), 0 6px 16px -6px rgba(16, 24, 32, 0.08);
+  --shadow-glow: 0 1px 2px rgba(16, 24, 32, 0.04), 0 1px 1px rgba(16, 24, 32, 0.03);
+  --scrim: rgba(17, 24, 39, 0.4);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f14;
+    --surface: #12161d;
+    --surface-2: #161b23;
+    --surface-3: #1d232c;
+    --surface-solid: #12161d;
+    --glass-highlight: rgba(255, 255, 255, 0);
+
+    --line: #232a35;
+    --line-2: #1c222b;
+    --ink: #e7eaef;
+    --ink-2: #9aa3b2;
+    --ink-3: #6b7484;
+    --brand: #10b981;
+    --brand-2: #34d399;
+    --brand-3: #6ee7b7;
+    --brand-soft: #103527;
+    --brand-ink: #6ee7b7;
+    --on-brand: #03140c;
+    --hero: #071410;
+    --hero-2: #10241b;
+    --hero-3: #173a2b;
+    --on-hero: #eaf7f0;
+    --on-hero-2: #8db4a1;
+    --ok: #4ade80;
+    --ok-soft: #12291c;
+    --warn: #fbbf24;
+    --warn-soft: #2c2210;
+    --bad: #f87171;
+    --bad-soft: #2c1616;
+    --info: #7fa9ff;
+    --info-soft: #131f33;
+    --c-rev: #34d399;
+    --c-cost: #7c8695;
+    --c-profit: #a48bff;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 24px 50px -18px rgba(0, 0, 0, 0.55), 0 8px 20px -8px rgba(0, 0, 0, 0.35);
+    --shadow-glow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+    --scrim: rgba(2, 6, 4, 0.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #0b0f14;
+  --surface: #12161d;
+  --surface-2: #161b23;
+  --surface-3: #1d232c;
+  --surface-solid: #12161d;
+  --glass-highlight: rgba(255, 255, 255, 0);
+  --line: #232a35;
+  --line-2: #1c222b;
+  --ink: #e7eaef;
+  --ink-2: #9aa3b2;
+  --ink-3: #6b7484;
+  --brand: #10b981;
+  --brand-2: #34d399;
+  --brand-3: #6ee7b7;
+  --brand-soft: #103527;
+  --brand-ink: #6ee7b7;
+  --on-brand: #03140c;
+  --hero: #071410;
+  --hero-2: #10241b;
+  --hero-3: #173a2b;
+  --on-hero: #eaf7f0;
+  --on-hero-2: #8db4a1;
+  --ok: #4ade80;
+  --ok-soft: #12291c;
+  --warn: #fbbf24;
+  --warn-soft: #2c2210;
+  --bad: #f87171;
+  --bad-soft: #2c1616;
+  --info: #7fa9ff;
+  --info-soft: #131f33;
+  --c-rev: #34d399;
+  --c-cost: #7c8695;
+  --c-profit: #a48bff;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 24px 50px -18px rgba(0, 0, 0, 0.55), 0 8px 20px -8px rgba(0, 0, 0, 0.35);
+  --shadow-glow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --scrim: rgba(2, 6, 4, 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-solid: var(--surface-solid);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-brand: var(--brand);
+  --color-brand-2: var(--brand-2);
+  --color-brand-3: var(--brand-3);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-on-brand: var(--on-brand);
+  --color-hero: var(--hero);
+  --color-hero-2: var(--hero-2);
+  --color-hero-3: var(--hero-3);
+  --color-on-hero: var(--on-hero);
+  --color-on-hero-2: var(--on-hero-2);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-rev: var(--c-rev);
+  --color-cost: var(--c-cost);
+  --color-profit: var(--c-profit);
+  --color-scrim: var(--scrim);
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-lg);
+  --shadow-glow: var(--shadow-glow);
+  --radius-card: 18px;
+  --radius-panel: 22px;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Kept as plain flat panels (name retained so existing markup needs no changes) */
+@utility mesh-bg {
+  background: var(--bg);
+}
+@utility glass {
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+@utility glass-strong {
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+@layer base {
+  html {
+    @apply mesh-bg;
+  }
+  body {
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    background: transparent;
+    min-height: 100dvh;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand-2);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+  input[type='number']::-webkit-inner-spin-button {
+    opacity: 0.4;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--brand-2) 30%, transparent);
+  }
+}
+
+@layer components {
+  .card {
+    @apply glass rounded-card shadow-card min-w-0;
+    position: relative;
+  }
+  .input {
+    @apply h-[42px] w-full min-w-0 rounded-[11px] border border-line bg-surface px-3.5 text-[14px] text-ink transition-[border-color,box-shadow] placeholder:text-ink-3;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--brand-2);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-2) 15%, transparent);
+  }
+  .input[aria-invalid='true'] {
+    border-color: var(--bad);
+  }
+  .input[aria-invalid='true']:focus {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 15%, transparent);
+  }
+  textarea.input {
+    @apply h-auto min-h-[84px] py-2.5 resize-y;
+  }
+  select.input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2399A1AE' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+  }
+  .label {
+    @apply text-[13px] font-medium text-ink-2;
+  }
+  .hint {
+    @apply text-[12px] text-ink-3;
+  }
+
+  /* Tables */
+  .table {
+    @apply w-full border-collapse text-[13.5px];
+  }
+  .table th {
+    @apply whitespace-nowrap border-b border-line px-3.5 py-3 text-left text-[12.5px] font-medium text-ink-3;
+  }
+  .table td {
+    @apply whitespace-nowrap border-b border-line-2 px-3.5 py-3.5 align-middle;
+  }
+  .table th:first-child,
+  .table td:first-child {
+    @apply pl-5;
+  }
+  .table th:last-child,
+  .table td:last-child {
+    @apply pr-5;
+  }
+  .table tr:last-child td {
+    @apply border-b-0;
+  }
+  .table .num {
+    @apply text-right;
+    font-variant-numeric: tabular-nums;
+  }
+  .table tr.row-link {
+    @apply cursor-pointer transition-colors;
+  }
+  .table tr.row-link:hover td {
+    background: var(--surface-2);
+  }
+
+  /* Skeleton shimmer */
+  .sk {
+    background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-2) 50%, var(--surface-3) 75%);
+    background-size: 200% 100%;
+    animation: sk 1.2s linear infinite;
+    border-radius: 8px;
+  }
+
+  /* Receipt paper — deliberately opaque and paper-like against the flat chrome around it */
+  .receipt {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    background: #fffefa;
+    color: #1b1f1c;
+    border-radius: 8px;
+    padding: 24px 22px 26px;
+    max-width: 340px;
+    margin: 0 auto;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04), 0 20px 40px -20px rgba(0, 0, 0, 0.3), 0 6px 16px -8px rgba(0, 0, 0, 0.14);
+  }
+  .receipt::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    height: 8px;
+    background: radial-gradient(circle at 6px 0, #fffefa 6px, transparent 6.5px) 0 0 / 12px 8px repeat-x;
+  }
+  .receipt hr {
+    border: 0;
+    border-top: 1.5px dashed #c9ccc6;
+    margin: 14px 0;
+  }
+  .receipt .rc-bar {
+    height: 34px;
+    margin-top: 14px;
+    opacity: 0.85;
+    background: repeating-linear-gradient(90deg, #1b1f1c 0 2px, transparent 2px 4px, #1b1f1c 4px 5px, transparent 5px 8px, #1b1f1c 8px 11px, transparent 11px 12px);
+  }
+}
+
+@keyframes sk {
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0.4;
+    transform: translateY(4px);
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0.4;
+    transform: translateY(6px) scale(0.99);
+  }
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+.animate-rise {
+  animation: rise 0.2s ease both;
+}
+.animate-pop {
+  animation: pop 0.16s ease both;
+}
+.animate-fade {
+  animation: fade 0.15s ease both;
+}
+.animate-floaty {
+  animation: none;
+}
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Printing: only the receipt copy in #print-root is shown, looking exactly like it does on screen */
+#print-root {
+  display: none;
+}
+@media print {
+  @page {
+    size: auto;
+    margin: 10mm;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+  #print-root {
+    display: block !important;
+  }
+  #print-root,
+  #print-root * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .print-sheet {
+    display: flex;
+    justify-content: center;
+    padding: 8px 24px 40px;
+  }
+  .print-sheet .receipt {
+    width: 340px;
+    break-inside: avoid;
+  }
+  .print-sheet .report-doc {
+    width: 100%;
+    max-width: 190mm;
+  }
+  .print-sheet .report-doc table {
+    break-inside: auto;
+  }
+  .print-sheet .report-doc tr {
+    break-inside: avoid;
+  }
+  .print-sheet .report-doc .avoid-break {
+    break-inside: avoid;
+  }
+}
