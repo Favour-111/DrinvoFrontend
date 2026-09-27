@@ -5,6 +5,7 @@ import { ToastProvider } from './context/ToastContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import { GuestOnly, HomeRedirect, RequireRole } from './routes/guards.jsx';
 import { PageSkeleton } from './components/ui/Feedback.jsx';
+import { FloatingCalculator } from './components/Calculator.jsx';
 import AdminLayout from './layouts/AdminLayout.jsx';
 import StaffLayout from './layouts/StaffLayout.jsx';
 import Login from './pages/auth/Login.jsx';
@@ -95,6 +96,7 @@ export default function App() {
 
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <FloatingCalculator />
           </CartProvider>
         </AuthProvider>
       </ToastProvider>
