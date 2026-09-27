@@ -31,8 +31,18 @@ export const session = {
   },
 };
 
+// The server always mounts routes under /api. VITE_API_URL is the server's origin (e.g.
+// https://drinvoserver.onrender.com) — normalized here so it works whether or not whoever set
+// it remembered the /api suffix, instead of silently 404ing every request in production.
+function apiBaseUrl() {
+  const url = import.meta.env.VITE_API_URL;
+  if (!url) return '/api';
+  const trimmed = url.replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+}
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: apiBaseUrl(),
   timeout: 20000,
 });
 
