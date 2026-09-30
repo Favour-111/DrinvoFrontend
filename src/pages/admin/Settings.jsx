@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Lock, MapPin, Plus, Power, Receipt, Store } from '../../components/icons.js';
+import { Check, LayoutGrid, Lock, MapPin, Pencil, Plus, Power, Receipt, Store, Trash2, X } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader } from '../../components/ui/Card.jsx';
-import { Button } from '../../components/ui/Button.jsx';
+import { Button, IconButton } from '../../components/ui/Button.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { Field, FormField, Input, Switch } from '../../components/ui/Form.jsx';
 import { ConfirmDialog } from '../../components/ui/Modal.jsx';
@@ -117,6 +117,118 @@ function StaffAccessSection({ business, onSaved }) {
       >
         <p>Every signed-in staff member will be signed out immediately, and no one can sign in until you turn this back on.</p>
         <p>Admin access is not affected.</p>
+      </ConfirmDialog>
+    </Section>
+  );
+}
+
+function CategoriesSection({ categories, onSaved }) {
+  const toast = useToast();
+  const [adding, setAdding] = useState('');
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editValue, setEditValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+
+  const persist = async (next, successMsg) => {
+    setBusy(true);
+    try {
+      await settingsService.updateBusiness({ categories: next });
+      await onSaved();
+      toast.success(successMsg);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addCategory = async () => {
+    const name = adding.trim();
+    if (!name) return;
+    if (categories.some((c) => c.toLowerCase() === name.toLowerCase())) {
+      toast.error('That category already exists.');
+      return;
+    }
+    await persist([...categories, name], 'Category added.');
+    setAdding('');
+  };
+
+  const renameCategory = async (idx) => {
+    const name = editValue.trim();
+    if (!name) return;
+    if (name === categories[idx]) {
+      setEditingIdx(null);
+      return;
+    }
+    if (categories.some((c, i) => i !== idx && c.toLowerCase() === name.toLowerCase())) {
+      toast.error('That category already exists.');
+      return;
+    }
+    await persist(categories.map((c, i) => (i === idx ? name : c)), 'Category renamed.');
+    setEditingIdx(null);
+  };
+
+  const removeCategory = async () => {
+    await persist(categories.filter((c) => c !== deleting), 'Category deleted.');
+    setDeleting(null);
+  };
+
+  return (
+    <Section icon={LayoutGrid} title="Categories" text="Used to organize and filter your products.">
+      <div className="flex flex-col gap-1.5">
+        {categories.map((c, i) =>
+          editingIdx === i ? (
+            <div key={c} className="flex items-center gap-2 rounded-[12px] border border-brand/30 bg-surface-2 px-2.5 py-1.5">
+              <Input
+                autoFocus
+                value={editValue}
+                maxLength={60}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') renameCategory(i);
+                  if (e.key === 'Escape') setEditingIdx(null);
+                }}
+                className="h-9 flex-1"
+              />
+              <IconButton size={32} icon={Check} label="Save" disabled={busy} onClick={() => renameCategory(i)} />
+              <IconButton size={32} icon={X} label="Cancel" disabled={busy} onClick={() => setEditingIdx(null)} />
+            </div>
+          ) : (
+            <div key={c} className="flex items-center gap-2.5 rounded-[12px] border border-line-2 bg-surface-2 px-3.5 py-2.5">
+              <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium">{c}</span>
+              <IconButton
+                size={32}
+                icon={Pencil}
+                label={`Rename ${c}`}
+                disabled={busy}
+                onClick={() => {
+                  setEditingIdx(i);
+                  setEditValue(c);
+                }}
+              />
+              <IconButton size={32} icon={Trash2} label={`Delete ${c}`} disabled={busy} onClick={() => setDeleting(c)} />
+            </div>
+          )
+        )}
+        {!categories.length && <p className="text-[13px] text-ink-3">No categories yet. Add one below.</p>}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <Input
+          value={adding}
+          maxLength={60}
+          onChange={(e) => setAdding(e.target.value)}
+          placeholder="New category, e.g. Wine"
+          aria-label="New category name"
+          onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+          className="h-10 flex-1"
+        />
+        <Button type="button" icon={Plus} loading={busy} onClick={addCategory}>
+          Add
+        </Button>
+      </div>
+      <ConfirmDialog open={Boolean(deleting)} onClose={() => setDeleting(null)} onConfirm={removeCategory} title={`Delete “${deleting}”?`} confirmLabel="Delete" icon={Trash2}>
+        <p>Products already using this category keep it — it just won’t be suggested for new products anymore.</p>
       </ConfirmDialog>
     </Section>
   );
@@ -238,6 +350,7 @@ export default function Settings() {
           </button>
         </Section>
         <StaffAccessSection business={business} onSaved={() => Promise.all([reload(), refresh()])} />
+        <CategoriesSection categories={business.categories || []} onSaved={() => Promise.all([reload(), refresh()])} />
         <Card flush>
           <CardHeader flush title="Roles & permissions" action={<span className="hint">More roles can be added later</span>} />
           <div className="overflow-x-auto">
