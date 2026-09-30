@@ -2,18 +2,125 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Copy, MapPin, Plus, Receipt, Store, Users } from '../../components/icons.js';
+import { Lock, MapPin, Plus, Power, Receipt, Store } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
-import { FormField, Switch } from '../../components/ui/Form.jsx';
+import { Field, FormField, Input, Switch } from '../../components/ui/Form.jsx';
+import { ConfirmDialog } from '../../components/ui/Modal.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ShopModal } from '../../components/modals/EntityModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { settingsService } from '../../services/index.js';
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function StaffAccessSection({ business, onSaved }) {
+  const toast = useToast();
+  const access = business.staffAccess || {};
+  const [local, setLocal] = useState({
+    scheduleEnabled: Boolean(access.scheduleEnabled),
+    start: access.start || '09:00',
+    end: access.end || '21:00',
+    days: access.days?.length === 7 ? access.days : [true, true, true, true, true, true, true],
+  });
+  const [shutdown, setShutdown] = useState(Boolean(access.shutdown));
+  const [confirmOff, setConfirmOff] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
+  const applyShutdown = async (next) => {
+    try {
+      await settingsService.updateBusiness({ staffAccess: { shutdown: next } });
+      setShutdown(next);
+      onSaved();
+      toast.success(next ? 'Staff access turned off. Staff are signed out immediately.' : 'Staff access turned back on.');
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const saveSchedule = async () => {
+    setSavingSchedule(true);
+    try {
+      await settingsService.updateBusiness({ staffAccess: local });
+      onSaved();
+      toast.success('Staff access schedule saved.');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  return (
+    <Section icon={Lock} title="Staff Access" text="Control when staff can sign in, and shut it off instantly if you need to.">
+      <div className="flex flex-col gap-3.5">
+        <label className="flex items-center justify-between gap-3 rounded-[16px] border border-line-2 bg-surface-2 px-3.5 py-3 text-[13.5px]">
+          <span className="flex items-center gap-2">
+            <Power size={15} className={shutdown ? 'text-bad' : 'text-ok'} />
+            Staff Access: <b className={shutdown ? 'text-bad' : 'text-ok'}>{shutdown ? 'OFF' : 'ON'}</b>
+          </span>
+          <Switch checked={!shutdown} onChange={(v) => (v ? applyShutdown(false) : setConfirmOff(true))} label="Staff access" />
+        </label>
+
+        <label className="flex items-center justify-between gap-3 rounded-[16px] border border-line-2 bg-surface-2 px-3.5 py-3 text-[13.5px]">
+          <span>Restrict sign-in to a schedule</span>
+          <Switch checked={local.scheduleEnabled} onChange={(v) => setLocal((s) => ({ ...s, scheduleEnabled: v }))} label="Restrict sign-in to a schedule" />
+        </label>
+
+        {local.scheduleEnabled && (
+          <>
+            <div className="grid grid-cols-2 gap-3.5">
+              <Field label="Opens at">
+                <Input type="time" value={local.start} onChange={(e) => setLocal((s) => ({ ...s, start: e.target.value }))} />
+              </Field>
+              <Field label="Closes at">
+                <Input type="time" value={local.end} onChange={(e) => setLocal((s) => ({ ...s, end: e.target.value }))} />
+              </Field>
+            </div>
+            <div>
+              <div className="label mb-1.5">Days staff can sign in</div>
+              <div className="flex flex-wrap gap-1.5">
+                {DAY_LABELS.map((label, i) => (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-pressed={local.days[i]}
+                    onClick={() => setLocal((s) => ({ ...s, days: s.days.map((d, di) => (di === i ? !d : d)) }))}
+                    className={`h-9 flex-1 rounded-[9px] border text-[12.5px] font-semibold transition-colors ${
+                      local.days[i] ? 'border-brand bg-brand text-on-brand' : 'border-line bg-surface text-ink-2 hover:border-ink-3/30'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+        <div className="flex justify-end">
+          <Button type="button" variant="primary" size="sm" loading={savingSchedule} onClick={saveSchedule}>
+            Save access schedule
+          </Button>
+        </div>
+      </div>
+      <ConfirmDialog
+        open={confirmOff}
+        onClose={() => setConfirmOff(false)}
+        onConfirm={() => applyShutdown(true)}
+        title="Turn off staff access?"
+        confirmLabel="Turn off"
+        icon={Power}
+      >
+        <p>Every signed-in staff member will be signed out immediately, and no one can sign in until you turn this back on.</p>
+        <p>Admin access is not affected.</p>
+      </ConfirmDialog>
+    </Section>
+  );
+}
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Enter the business name'),
@@ -86,15 +193,6 @@ export default function Settings() {
   const [business, shops] = data;
   const e = form.formState.errors;
   const reg = form.register;
-  const signupUrl = `${window.location.origin}/signup/${business.id}`;
-  const copySignupLink = async () => {
-    try {
-      await navigator.clipboard.writeText(signupUrl);
-      toast.success('Sign-up link copied.');
-    } catch {
-      toast.error('Couldn’t copy the link. Select and copy it manually.');
-    }
-  };
 
   return (
     <Page>
@@ -139,14 +237,7 @@ export default function Settings() {
             </div>
           </button>
         </Section>
-        <Section icon={Users} title="Staff sign-up link" text="Share this with new hires. New accounts stay pending until you approve them on the Staff page.">
-          <div className="flex items-center gap-2.5 rounded-[14px] border border-line-2 bg-surface-2 px-3.5 py-3">
-            <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-2">{signupUrl}</span>
-            <Button type="button" size="sm" icon={Copy} onClick={copySignupLink}>
-              Copy
-            </Button>
-          </div>
-        </Section>
+        <StaffAccessSection business={business} onSaved={() => Promise.all([reload(), refresh()])} />
         <Card flush>
           <CardHeader flush title="Roles & permissions" action={<span className="hint">More roles can be added later</span>} />
           <div className="overflow-x-auto">

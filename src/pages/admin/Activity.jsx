@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity as ActivityIcon } from '../../components/icons.js';
+import { Activity as ActivityIcon, Search } from '../../components/icons.js';
 import { Chips, Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
+import { Input } from '../../components/ui/Form.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { activityIcon, activityLink } from '../../components/Widgets.jsx';
 import { auditService } from '../../services/index.js';
@@ -19,16 +20,18 @@ const KINDS = [
   ['staff', 'Staff'],
   ['supplier', 'Suppliers'],
   ['settings', 'Settings'],
+  ['auth', 'Sign-ins'],
 ];
 
 export default function Activity() {
   const [category, setCategory] = useState('all');
+  const [q, setQ] = useState('');
   const [state, setState] = useState({ items: [], page: 0, pages: 1, loading: true, error: null });
 
   const load = async (page, reset) => {
     setState((s) => ({ ...s, loading: true, error: null }));
     try {
-      const res = await auditService.list({ category, page, limit: 50 });
+      const res = await auditService.list({ category, q, page, limit: 50 });
       setState((s) => ({ items: reset ? res.items : [...s.items, ...res.items], page: res.page, pages: res.pages, loading: false, error: null }));
     } catch (error) {
       setState((s) => ({ ...s, loading: false, error }));
@@ -36,9 +39,10 @@ export default function Activity() {
   };
 
   useEffect(() => {
-    load(1, true);
+    const t = setTimeout(() => load(1, true), q ? 300 : 0);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
+  }, [category, q]);
 
   if (state.error && !state.items.length) return <ErrorState error={state.error} onRetry={() => load(1, true)} />;
   if (state.loading && !state.items.length && state.page === 0) return <PageSkeleton stats={0} chart={false} rows={10} />;
@@ -54,6 +58,10 @@ export default function Activity() {
   return (
     <Page>
       <PageHeader title="Activity" subtitle="Who did what, and when. Entries can’t be edited or deleted." />
+      <div className="relative">
+        <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search activity…" className="pl-10 sm:max-w-[320px]" aria-label="Search activity" />
+      </div>
       <Chips label="Filter activity" options={KINDS} value={category} onChange={setCategory} />
       {groups.length ? (
         groups.map((g) => (

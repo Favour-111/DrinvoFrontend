@@ -367,14 +367,18 @@
     opacity: 0;
   }
 }
+/* fill-mode: backwards (not "both") — "both" keeps applying the animation's end value forever, which
+   leaves a non-"none" `transform` on the element even after it finishes. Any non-"none" transform on
+   an ancestor creates a new containing block, so `position: fixed` descendants (e.g. a mobile cart's
+   floating button) end up positioned relative to that ancestor instead of the viewport. */
 .animate-rise {
-  animation: rise 0.2s ease both;
+  animation: rise 0.2s ease backwards;
 }
 .animate-pop {
-  animation: pop 0.16s ease both;
+  animation: pop 0.16s ease backwards;
 }
 .animate-fade {
-  animation: fade 0.15s ease both;
+  animation: fade 0.15s ease backwards;
 }
 .animate-floaty {
   animation: none;

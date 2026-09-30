@@ -81,14 +81,14 @@ function Submitted({ name, businessName }) {
 }
 
 export default function Signup() {
-  const { businessId } = useParams();
+  const { token } = useParams();
   const [done, setDone] = useState(null);
-  const { data: business, error, loading } = useApi(() => authService.signupBusiness(businessId), [businessId]);
+  const { data: invite, error, loading } = useApi(() => authService.invitationInfo(token), [token]);
   const { register, handleSubmit, formState, setError, watch } = useForm({ resolver: zodResolver(schema), defaultValues: { shopId: '' } });
 
   const submit = handleSubmit(async ({ shopId, ...values }) => {
     try {
-      const result = await authService.signup({ ...values, businessId, ...(shopId ? { shopId } : {}) });
+      const result = await authService.signup({ ...values, token, ...(shopId ? { shopId } : {}) });
       setDone(result.name);
     } catch (err) {
       applyServerErrors(err, setError);
@@ -96,12 +96,13 @@ export default function Signup() {
     }
   });
 
-  if (done) return <Submitted name={done} businessName={business?.name} />;
-  if (loading && !business) return null;
+  if (done) return <Submitted name={done} businessName={invite?.businessName} />;
+  if (loading && !invite) return null;
   if (error) return <ErrorState error={error} />;
 
-  const shops = business?.shops || [];
-  const needsShopChoice = shops.length > 1;
+  const shops = invite?.shops || [];
+  const needsShopChoice = !invite?.shopId && shops.length > 1;
+  const preassignedShop = invite?.shopId ? shops.find((s) => s.id === invite.shopId) : shops[0];
 
   return (
     <div className="grid min-h-dvh bg-bg lg:grid-cols-[1.05fr_1fr]">
@@ -112,8 +113,8 @@ export default function Signup() {
             <div>
               <h2 className="text-[24px] font-bold">Create your account</h2>
               <p className="mt-1 text-[13.5px] text-ink-3">
-                Joining <b className="text-ink">{business?.name}</b>
-                {!needsShopChoice && shops[0] ? ` · ${shops[0].name}` : ''}
+                Joining <b className="text-ink">{invite?.businessName}</b>
+                {!needsShopChoice && preassignedShop ? ` · ${preassignedShop.name}` : ''}
               </p>
             </div>
             <FormError message={formState.errors.root?.message} />

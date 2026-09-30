@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService } from '../services/index.js';
-import { session } from '../services/api.js';
+import { api, session } from '../services/api.js';
 import { stockSocket } from '../services/socket.js';
 import { clearApiCache } from '../hooks/useApi.js';
 
@@ -39,6 +39,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const onUnauthorized = (e) => {
+      // The REST path already clears the token; this also covers the WebSocket-pushed kick (e.g. staff access closing mid-session).
+      session.clear();
       setNotice(e.detail || 'Please sign in again.');
       setState({ status: 'guest', data: null });
     };
@@ -59,9 +61,13 @@ export function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
+    // Capture the token before clearing it — session.clear() below runs synchronously and would
+    // otherwise race the async request interceptor, sending this call with no Authorization header.
+    const token = session.getToken();
     clearApiCache();
     session.clear();
     setState({ status: 'guest', data: null });
+    if (token) api.post('/auth/logout', null, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
   }, []);
 
   const switchShop = useCallback((shopId) => {

@@ -51,8 +51,16 @@ function open(shopId) {
     if (msg.type === 'stock' && Array.isArray(msg.items)) {
       for (const fn of listeners) fn(msg.items);
     }
+    if (msg.type === 'access-denied') {
+      window.dispatchEvent(new CustomEvent('drinvo:unauthorized', { detail: msg.reason || 'Staff access is currently closed. Please try again during business hours.' }));
+    }
   };
-  ws.onclose = () => {
+  ws.onclose = (event) => {
+    // 4001: the server deliberately closed this connection (access rules, session ended) — don't reconnect into the same wall.
+    if (event.code === 4001) {
+      if (currentShopId === shopId) currentShopId = null;
+      return;
+    }
     if (currentShopId === shopId) scheduleReconnect(shopId);
   };
   ws.onerror = () => ws?.close();

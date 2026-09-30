@@ -249,14 +249,14 @@ export default function NewSale() {
           </div>
         </div>
 
-        <div className="scrollbar-none min-h-0 flex-1 overflow-auto px-[18px]">
+        <div className="scrollbar-none flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-[18px]">
           {cart.lines.length ? (
             cart.lines.map((l) => {
               const p = l.product;
               const short = cart.shortages.get(p.variantId);
               const units = availableUnits(p);
               return (
-                <div key={l.key} className={cn('mb-2 flex flex-col gap-2 rounded-[14px] border p-2.5', short ? 'border-bad/40 bg-bad-soft' : 'border-line-2 bg-surface-2')}>
+                <div key={l.key} className={cn('flex flex-col gap-2 rounded-[14px] border p-2.5', short ? 'border-bad/40 bg-bad-soft' : 'border-line-2 bg-surface-2')}>
                   <div className="flex items-center gap-2.5">
                     <ProductThumb product={p} size={32} />
                     <div className="min-w-0 flex-1">
@@ -291,68 +291,71 @@ export default function NewSale() {
           ) : (
             <EmptyState icon={ShoppingCart} title="Cart is empty" text="Tap a drink to add it to this sale." className="py-8" />
           )}
-        </div>
 
-        <div className="relative flex flex-col gap-2.5 border-t border-line-2 px-[18px] pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]">
-          <div className="flex items-baseline justify-between">
-            <span className="font-medium text-ink-2">
-              Total · {cart.count} item{cart.count === 1 ? '' : 's'}
-            </span>
-            <b className="tnum text-[24px] font-bold tracking-[-0.03em]">{money(cart.total)}</b>
-          </div>
-          {totalDiscount > 0 && (
-            <div className="flex items-baseline justify-between text-[12.5px]">
-              <span className="text-ink-3">Discount given</span>
-              <span className="tnum font-semibold text-warn">−{money(totalDiscount)}</span>
+          <div className="flex flex-col gap-2.5 border-t border-line-2 pt-3.5">
+            <div className="flex items-baseline justify-between">
+              <span className="font-medium text-ink-2">
+                Total · {cart.count} item{cart.count === 1 ? '' : 's'}
+              </span>
+              <b className="tnum text-[24px] font-bold tracking-[-0.03em]">{money(cart.total)}</b>
             </div>
-          )}
-          <div>
-            <div className="label mb-1.5">Payment</div>
-            <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-5 gap-1.5">
-              {['CASH', 'POS', 'TRANSFER', 'CREDIT', 'PART'].map((m) => {
-                const Icon = PAYMENT_ICON[m];
-                const on = cart.paymentMethod === m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => cart.setPayment(m)}
-                    className={cn(
-                      'flex h-12 flex-col items-center justify-center gap-[3px] rounded-[10px] border text-[12.5px] font-semibold transition-colors duration-150',
-                      on ? 'border-brand bg-brand text-on-brand' : 'border-line bg-surface text-ink-2 hover:border-ink-3/30'
-                    )}
-                  >
-                    <Icon size={17} />
-                    {m === 'PART' ? 'Part pay' : PAYMENT_LABEL[m]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          {isPart && (
-            <div className="flex flex-col gap-2.5 rounded-[16px] border border-line-2 bg-surface-2 p-3">
-              <Field label="Amount paid now" htmlFor="part-amount" error={partError || undefined}>
-                <MoneyInput id="part-amount" value={cart.partAmount} onChange={(e) => cart.setPart({ partAmount: e.target.value })} placeholder="e.g. 5000" error={partError} />
-              </Field>
-              <Field label="Paid with">
-                <Segmented
-                  label="Paid with"
-                  value={cart.partWith}
-                  onChange={(partWith) => cart.setPart({ partWith })}
-                  options={['CASH', 'POS', 'TRANSFER'].map((m) => ({ value: m, label: PAYMENT_LABEL[m] }))}
-                />
-              </Field>
-              <div className="flex items-baseline justify-between text-[13.5px]">
-                <span className="text-ink-2">Balance owed on credit</span>
-                <b className="tnum text-[17px] text-warn">{money(Math.max(0, cart.total - partPaid))}</b>
+            {totalDiscount > 0 && (
+              <div className="flex items-baseline justify-between text-[12.5px]">
+                <span className="text-ink-3">Discount given</span>
+                <span className="tnum font-semibold text-warn">−{money(totalDiscount)}</span>
+              </div>
+            )}
+            <div>
+              <div className="label mb-1.5">Payment</div>
+              <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-5 gap-1.5">
+                {['CASH', 'POS', 'TRANSFER', 'CREDIT', 'PART'].map((m) => {
+                  const Icon = PAYMENT_ICON[m];
+                  const on = cart.paymentMethod === m;
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => cart.setPayment(m)}
+                      className={cn(
+                        'flex h-12 flex-col items-center justify-center gap-[3px] rounded-[10px] border text-[12.5px] font-semibold transition-colors duration-150',
+                        on ? 'border-brand bg-brand text-on-brand' : 'border-line bg-surface text-ink-2 hover:border-ink-3/30'
+                      )}
+                    >
+                      <Icon size={17} />
+                      {m === 'PART' ? 'Part pay' : PAYMENT_LABEL[m]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
-          <Field label={onAccount ? 'Customer (owes the balance)' : 'Customer'}>
-            <CustomerPicker value={cart.customer} onChange={cart.setCustomer} total={isPart ? Math.max(0, cart.total - partPaid) : cart.total} credit={onAccount} />
-          </Field>
+            {isPart && (
+              <div className="flex flex-col gap-2.5 rounded-[16px] border border-line-2 bg-surface-2 p-3">
+                <Field label="Amount paid now" htmlFor="part-amount" error={partError || undefined}>
+                  <MoneyInput id="part-amount" value={cart.partAmount} onChange={(e) => cart.setPart({ partAmount: e.target.value })} placeholder="e.g. 5000" error={partError} />
+                </Field>
+                <Field label="Paid with">
+                  <Segmented
+                    label="Paid with"
+                    value={cart.partWith}
+                    onChange={(partWith) => cart.setPart({ partWith })}
+                    options={['CASH', 'POS', 'TRANSFER'].map((m) => ({ value: m, label: PAYMENT_LABEL[m] }))}
+                  />
+                </Field>
+                <div className="flex items-baseline justify-between text-[13.5px]">
+                  <span className="text-ink-2">Balance owed on credit</span>
+                  <b className="tnum text-[17px] text-warn">{money(Math.max(0, cart.total - partPaid))}</b>
+                </div>
+              </div>
+            )}
+            <Field label={onAccount ? 'Customer (owes the balance)' : 'Customer'}>
+              <CustomerPicker value={cart.customer} onChange={cart.setCustomer} total={isPart ? Math.max(0, cart.total - partPaid) : cart.total} credit={onAccount} />
+            </Field>
+          </div>
+        </div>
+
+        <div className="relative flex flex-col gap-2 border-t border-line-2 px-[18px] pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]">
           {error && <div className="rounded-[14px] border border-bad/15 bg-bad-soft px-3 py-2.5 text-[13px] font-medium text-bad">{error}</div>}
           <Button variant="primary" size="lg" block icon={Check} loading={busy} disabled={blocked} onClick={complete}>
             Complete Sale{cart.lines.length ? ` · ${money(cart.total)}` : ''}

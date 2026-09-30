@@ -4,11 +4,12 @@ const clean = (params = {}) => Object.fromEntries(Object.entries(params).filter(
 
 export const authService = {
   login: (email, password) => post('/auth/login', { email, password }),
+  logout: () => post('/auth/logout'),
   me: () => get('/auth/me'),
   changePassword: (body) => post('/auth/change-password', body),
   updateMe: (body) => patch('/users/me', body),
   signup: (body) => post('/auth/signup', body),
-  signupBusiness: (businessId) => get(`/signup/${businessId}`),
+  invitationInfo: (token) => get(`/invite/${token}`),
 };
 
 export const productService = {
@@ -75,6 +76,9 @@ export const staffService = {
   deactivate: (id) => post(`/staff/${id}/deactivate`),
   activate: (id) => post(`/staff/${id}/activate`),
   resetPassword: (id, password) => post(`/staff/${id}/reset-password`, { password }),
+  listInvitations: () => get('/staff/invitations'),
+  createInvitation: (body) => post('/staff/invitations', body),
+  revokeInvitation: (id) => post(`/staff/invitations/${id}/revoke`),
 };
 
 export const settingsService = {

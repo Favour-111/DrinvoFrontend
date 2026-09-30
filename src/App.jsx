@@ -52,7 +52,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<HomeRedirect />} />
               <Route path="/login" element={<GuestOnly><Login /></GuestOnly>} />
-              <Route path="/signup/:businessId" element={<GuestOnly><Signup /></GuestOnly>} />
+              <Route path="/signup/:token" element={<GuestOnly><Signup /></GuestOnly>} />
 
               <Route element={<RequireRole roles={['ADMIN']} />}>
                 <Route path="/admin" element={<AdminLayout />}>
