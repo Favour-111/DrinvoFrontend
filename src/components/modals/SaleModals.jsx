@@ -1,12 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Ban, Wallet } from '../icons.js';
+import { useEffect, useMemo, useState } from 'react';
+import { Ban, Calendar, Check, Plus, Trash2, Wallet } from '../icons.js';
 import { Modal, ConfirmDialog } from '../ui/Modal.jsx';
-import { Button } from '../ui/Button.jsx';
+import { Button, IconButton } from '../ui/Button.jsx';
 import { Field, FormError, Input, MoneyInput, Select, Stepper, Switch, Textarea } from '../ui/Form.jsx';
 import { ProductThumb } from '../ui/Media.jsx';
-import { salesService } from '../../services/index.js';
+import { Skeleton } from '../ui/Feedback.jsx';
+import { PAYMENT_ICON } from '../ui/Badge.jsx';
+import { inventoryService, salesService, customerService } from '../../services/index.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
-import { money, plural } from '../../utils/format.js';
+import { useApi, useDebounce } from '../../hooks/useApi.js';
+import { isoDate, money, plural, PAYMENT_LABEL } from '../../utils/format.js';
+import { availableUnits, conversionFor, describeStock, minimumFor, priceFor, UNIT_LABEL } from '../../utils/units.js';
+import { cn } from '../../utils/cn.js';
 
 const REASONS = ['Customer changed mind', 'Damaged or expired', 'Wrong item sold', 'Other'];
 
@@ -256,6 +262,352 @@ export function VoidModal({ open, onClose, sale, onDone }) {
       <Field label="Reason" htmlFor="void-reason">
         <Textarea id="void-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer cancelled before collection" className="min-h-16" />
       </Field>
+    </Modal>
+  );
+}
+
+function VariantOptions({ items }) {
+  const groups = useMemo(() => {
+    const map = new Map();
+    for (const i of items) {
+      if (!map.has(i.productName)) map.set(i.productName, []);
+      map.get(i.productName).push(i);
+    }
+    return [...map.entries()];
+  }, [items]);
+  return groups.map(([name, vs]) => (
+    <optgroup key={name} label={name}>
+      {vs.map((v) => (
+        <option key={v.variantId} value={v.variantId}>
+          {v.name} · {describeStock(v)}
+        </option>
+      ))}
+    </optgroup>
+  ));
+}
+
+/** Compact buyer search for the admin "Log a Sale" modal — find an existing customer or add one by name and phone. */
+function CustomerSearch({ value, onChange }) {
+  const [q, setQ] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const debounced = useDebounce(q);
+  const { data } = useApi(() => customerService.list({ q: debounced }), [debounced]);
+
+  if (value)
+    return (
+      <div className="flex items-center gap-3 rounded-[11px] border border-brand/25 bg-brand-soft px-3.5 py-2.5">
+        <div className="min-w-0 flex-1">
+          <b className="block truncate font-semibold">{value.name}</b>
+          <small className="text-[12.5px] text-ink-2">{value.phone}</small>
+        </div>
+        <button type="button" onClick={() => onChange(null)} className="text-[13px] font-semibold text-brand-ink">
+          Change
+        </button>
+      </div>
+    );
+
+  if (adding) {
+    const valid = name.trim().length >= 2 && phone.trim().length >= 7;
+    return (
+      <div className="flex flex-col gap-2.5 rounded-[15px] border border-line-2 bg-surface-2 p-3">
+        <Field label="Customer name" htmlFor="ls-name">
+          <Input id="ls-name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="off" />
+        </Field>
+        <Field label="Phone number" htmlFor="ls-phone">
+          <Input id="ls-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="off" />
+        </Field>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={() => setAdding(false)}>
+            Back
+          </Button>
+          <Button size="sm" variant="primary" disabled={!valid} onClick={() => onChange({ id: null, name: name.trim(), phone: phone.trim() })}>
+            Use this customer
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search customer name or phone" aria-label="Search customers" />
+      <div className="max-h-32 overflow-auto rounded-[15px] border border-line-2 bg-surface-2">
+        {(data || []).slice(0, 6).map((c) => (
+          <button key={c.id} type="button" onClick={() => onChange(c)} className="flex w-full items-center justify-between gap-2 border-b border-line-2 px-3 py-2 text-left text-[13.5px] last:border-0 hover:bg-surface-3">
+            <span className="truncate font-medium">{c.name}</span>
+            <span className="tnum text-[12.5px] text-ink-3">{c.phone}</span>
+          </button>
+        ))}
+        {data && !data.length && <p className="px-3 py-2 text-[13px] text-ink-3">No customer found.</p>}
+      </div>
+      <Button size="sm" onClick={() => setAdding(true)}>
+        New customer
+      </Button>
+    </div>
+  );
+}
+
+/** Lets admin enter a sale that isn't happening live right now — typically a past sale being
+ * migrated from paper records. Deducts stock and records payment exactly like a normal sale,
+ * just dated to when it actually happened. Always acts on the currently active shop (switch
+ * shops with the picker in the header first to log one for a different shop). */
+export function LogSaleModal({ open, onClose, onDone }) {
+  const { shop } = useAuth();
+  const toast = useToast();
+  const [items, setItems] = useState(null);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [date, setDate] = useState(isoDate());
+  const [lines, setLines] = useState([]);
+  const [draft, setDraft] = useState({ variantId: '', unit: 'bottle', quantity: 1, price: '' });
+  const [paymentMethod, setPaymentMethod] = useState('CASH');
+  const [amountPaid, setAmountPaid] = useState('');
+  const [paidWith, setPaidWith] = useState('CASH');
+  const [customer, setCustomer] = useState(null);
+  const [serverError, setServerError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setDate(isoDate());
+    setLines([]);
+    setDraft({ variantId: '', unit: 'bottle', quantity: 1, price: '' });
+    setPaymentMethod('CASH');
+    setAmountPaid('');
+    setPaidWith('CASH');
+    setCustomer(null);
+    setServerError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setItems(null);
+      return undefined;
+    }
+    let live = true;
+    setLoadingItems(true);
+    inventoryService
+      .list()
+      .then((r) => {
+        if (!live) return;
+        setItems(r.items);
+        const first = r.items.find((i) => i.quantity > 0) || r.items[0];
+        setDraft({ variantId: first?.variantId || '', unit: 'bottle', quantity: 1, price: '' });
+      })
+      .finally(() => live && setLoadingItems(false));
+    return () => {
+      live = false;
+    };
+  }, [open]);
+
+  const v = items?.find((i) => i.variantId === draft.variantId);
+  const conv = v ? conversionFor(v, draft.unit) : 0;
+  const draftQty = Number(draft.quantity) || 0;
+  const draftBase = draftQty * conv;
+  const listPrice = v ? priceFor(v, draft.unit) : 0;
+  const minPrice = v ? minimumFor(v, draft.unit) : 0;
+  const draftPrice = draft.price !== '' ? Number(draft.price) : listPrice;
+  const belowMin = minPrice > 0 && draftPrice < minPrice;
+  const draftValid = Boolean(v && draftBase > 0 && draftBase <= v.quantity && draftPrice >= 0 && !belowMin);
+
+  const onDraftVariant = (id) => setDraft({ variantId: id, unit: 'bottle', quantity: 1, price: '' });
+
+  const addLine = () => {
+    if (!draftValid) return;
+    setLines((ls) => [...ls, { variantId: draft.variantId, unit: draft.unit, quantity: draftQty, name: v.name, unitPrice: draftPrice, lineTotal: draftPrice * draftQty, ...(draft.price !== '' ? { price: draftPrice } : {}) }]);
+  };
+  const removeLine = (i) => setLines((ls) => ls.filter((_, idx) => idx !== i));
+
+  const total = lines.reduce((s, l) => s + l.lineTotal, 0);
+  const isPart = paymentMethod === 'PART';
+  const onAccount = isPart || paymentMethod === 'CREDIT';
+  const paid = Number(amountPaid) || 0;
+  const partError = isPart && total > 0 && paid >= total ? 'That covers the whole bill. Choose Cash, POS or Transfer instead.' : '';
+  const blocked = !lines.length || !customer || (isPart && (!(paid > 0) || Boolean(partError)));
+
+  const submit = async () => {
+    if (blocked) return;
+    setSubmitting(true);
+    setServerError('');
+    try {
+      await salesService.create({
+        items: lines.map(({ variantId, unit, quantity, price }) => ({ variantId, unit, quantity, ...(price != null ? { price } : {}) })),
+        paymentMethod,
+        ...(customer.id ? { customerId: customer.id } : { customer: { name: customer.name, phone: customer.phone } }),
+        ...(isPart ? { amountPaid: paid, paidWith } : {}),
+        ...(date !== isoDate() ? { backdatedAt: new Date(`${date}T12:00:00`).toISOString() } : {}),
+      });
+      toast.success('Sale logged.');
+      onDone?.();
+      onClose();
+    } catch (err) {
+      setServerError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="lg"
+      title="Log a Sale"
+      description={shop ? `For ${shop.name}. Switch shops with the picker in the header first to log one for a different shop.` : undefined}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" icon={Check} onClick={submit} loading={submitting} disabled={blocked}>
+            Log Sale{lines.length ? ` · ${money(total)}` : ''}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        <FormError message={serverError} />
+
+        <Field label="Sale date" htmlFor="ls-date" hint="Pick a past date for a sale you're migrating from paper records. Stock is removed now either way.">
+          <div className="flex items-center gap-2">
+            <Calendar size={15} className="text-ink-3" />
+            <input id="ls-date" type="date" className="input" value={date} max={isoDate()} onChange={(e) => e.target.value && setDate(e.target.value)} />
+          </div>
+        </Field>
+
+        <div className="rounded-[16px] border border-line-2 bg-surface-2 p-3.5">
+          <div className="label mb-2">Add a product</div>
+          {loadingItems ? (
+            <Skeleton className="h-10" />
+          ) : (
+            <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.4fr)_76px_100px_104px_auto]">
+              <Field label="Product" htmlFor="ls-variant">
+                <Select id="ls-variant" value={draft.variantId} onChange={(e) => onDraftVariant(e.target.value)}>
+                  <VariantOptions items={items || []} />
+                </Select>
+              </Field>
+              <Field label="Qty" htmlFor="ls-qty">
+                <input id="ls-qty" className="input" type="number" min="1" inputMode="numeric" value={draft.quantity} onChange={(e) => setDraft((d) => ({ ...d, quantity: e.target.value }))} />
+              </Field>
+              <Field label="Unit" htmlFor="ls-unit">
+                <Select id="ls-unit" value={draft.unit} onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value, price: '' }))}>
+                  {v &&
+                    availableUnits(v).map((u) => (
+                      <option key={u} value={u}>
+                        {UNIT_LABEL[u]}
+                      </option>
+                    ))}
+                </Select>
+              </Field>
+              <Field label="Price" htmlFor="ls-price" error={belowMin ? `Min ${money(minPrice)}` : undefined}>
+                <input id="ls-price" className="input" type="number" min="0" inputMode="decimal" placeholder={String(listPrice)} value={draft.price} onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))} />
+              </Field>
+              <div className="flex items-end">
+                <Button type="button" variant="primary" icon={Plus} disabled={!draftValid} onClick={addLine} className="w-full sm:w-auto">
+                  Add
+                </Button>
+              </div>
+            </div>
+          )}
+          {v && (
+            <p className="hint mt-2">
+              Available: {describeStock(v)}
+              {draftBase > 0 && ` · ${plural(draftQty, draft.unit)} = ${plural(draftBase, 'bottle')}`}
+              {draftBase > v.quantity && ' · Not enough stock'}
+            </p>
+          )}
+          {items && !items.length && <p className="hint mt-2">{shop?.name} has no products in stock yet.</p>}
+        </div>
+
+        {lines.length > 0 && (
+          <div className="overflow-hidden rounded-[16px] border border-line-2">
+            <div className="overflow-x-auto">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th className="num">Quantity</th>
+                    <th className="num">Price</th>
+                    <th className="num">Remove</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((l, i) => (
+                    <tr key={i}>
+                      <td>{l.name}</td>
+                      <td className="num tnum">{plural(l.quantity, l.unit)}</td>
+                      <td className="num tnum">{money(l.lineTotal)}</td>
+                      <td className="num">
+                        <IconButton size={30} icon={Trash2} label={`Remove ${l.name} line`} onClick={() => removeLine(i)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between border-t border-line-2 bg-surface-2 px-3.5 py-2.5">
+              <span className="text-[13px] font-semibold text-ink-2">Total</span>
+              <b className="tnum text-[17px]">{money(total)}</b>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <div className="label mb-1.5">Payment</div>
+          <div role="radiogroup" aria-label="Payment method" className="grid grid-cols-5 gap-1.5">
+            {['CASH', 'POS', 'TRANSFER', 'CREDIT', 'PART'].map((m) => {
+              const Icon = PAYMENT_ICON[m];
+              const on = paymentMethod === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setPaymentMethod(m)}
+                  className={cn(
+                    'flex h-12 flex-col items-center justify-center gap-[3px] rounded-[10px] border text-[12.5px] font-semibold transition-colors duration-150',
+                    on ? 'border-brand bg-brand text-on-brand' : 'border-line bg-surface text-ink-2 hover:border-ink-3/30'
+                  )}
+                >
+                  <Icon size={17} />
+                  {m === 'PART' ? 'Part pay' : PAYMENT_LABEL[m]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {isPart && (
+          <div className="flex flex-col gap-2.5 rounded-[16px] border border-line-2 bg-surface-2 p-3">
+            <Field label="Amount paid now" htmlFor="ls-part-amount" error={partError || undefined}>
+              <MoneyInput id="ls-part-amount" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} placeholder="e.g. 5000" error={partError} />
+            </Field>
+            <Field label="Paid with">
+              <div className="flex gap-1.5">
+                {['CASH', 'POS', 'TRANSFER'].map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPaidWith(m)}
+                    className={cn('h-9 flex-1 rounded-[9px] border text-[12.5px] font-semibold transition-colors', paidWith === m ? 'border-brand bg-brand text-on-brand' : 'border-line bg-surface text-ink-2')}
+                  >
+                    {PAYMENT_LABEL[m]}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <div className="flex items-baseline justify-between text-[13.5px]">
+              <span className="text-ink-2">Balance owed on credit</span>
+              <b className="tnum text-[17px] text-warn">{money(Math.max(0, total - paid))}</b>
+            </div>
+          </div>
+        )}
+
+        <Field label={onAccount ? 'Customer (owes the balance)' : 'Customer'}>
+          <CustomerSearch value={customer} onChange={setCustomer} />
+        </Field>
+      </div>
     </Modal>
   );
 }

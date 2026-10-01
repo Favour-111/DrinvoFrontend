@@ -71,7 +71,7 @@ export function StatCard({ label, value, icon: Icon, footer, to, dark, iconTone 
  */
 export function StatBar({ items }) {
   return (
-    <div className="card grid grid-cols-2 divide-y divide-line-2 p-0 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+    <div className="card grid grid-cols-2 divide-y divide-line-2 p-0 sm:grid-cols-3 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
       {items.map(({ key, label, value, icon: Icon, footer, to, iconTone = 'brand' }) => {
         const content = (
           <>

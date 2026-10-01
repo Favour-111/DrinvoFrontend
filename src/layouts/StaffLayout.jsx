@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Home, LogOut, Package, Plus, Receipt, Store, User } from '../components/icons.js';
+import { Home, LogOut, Package, Plus, Receipt, Store, User, Wallet } from '../components/icons.js';
 import { Avatar, Logo } from '../components/ui/Media.jsx';
 import { SyncIndicator } from '../components/SyncIndicator.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -12,6 +12,7 @@ const TABS = [
   ['/staff/sale', 'New Sale', Plus],
   ['/staff/sales', 'Sales', Receipt],
   ['/staff/inventory', 'Inventory', Package],
+  ['/staff/customers', 'Customers', Wallet],
   ['/staff/profile', 'Profile', User],
 ];
 
@@ -93,7 +94,7 @@ export default function StaffLayout() {
       </main>
 
       {/* Bottom tab bar */}
-      <nav aria-label="Staff navigation" className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-line bg-surface px-1.5 pt-1.5 pb-[calc(8px+env(safe-area-inset-bottom))] md:hidden">
+      <nav aria-label="Staff navigation" className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t border-line bg-surface px-1.5 pt-1.5 pb-[calc(8px+env(safe-area-inset-bottom))] md:hidden">
         {TABS.map(([to, label, Icon]) => {
           const on = isActive(to);
           if (to === '/staff/sale')

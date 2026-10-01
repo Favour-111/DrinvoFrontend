@@ -13,6 +13,7 @@ const localId = () => `LOCAL-${crypto.randomUUID()}`;
 export async function createLocalSale({ shop, business, staff, cart, isPart, partPaid }) {
   const id = localId();
   const now = new Date().toISOString();
+  const backdatedAt = cart.backdatedAt || null;
 
   const lines = cart.lines.map((l) => ({
     variantId: l.product.variantId,
@@ -36,6 +37,7 @@ export async function createLocalSale({ shop, business, staff, cart, isPart, par
     paymentMethod: cart.paymentMethod,
     ...(cart.customer?.id ? { customerId: cart.customer.id } : { customer: { name: cart.customer.name, phone: cart.customer.phone } }),
     ...(isPart ? { amountPaid: partPaid, paidWith: cart.partWith } : {}),
+    ...(backdatedAt ? { backdatedAt } : {}),
   };
 
   // Denormalized so every screen that already knows how to render a server sale (Receipt,
@@ -63,7 +65,7 @@ export async function createLocalSale({ shop, business, staff, cart, isPart, par
     staff: { id: staff.id, name: staff.name },
     business: { name: business?.name },
     shop: { name: shop?.name, address: shop?.address },
-    createdAt: now,
+    createdAt: backdatedAt || now,
   };
 
   await deductLocalStock(shop.id, lines);

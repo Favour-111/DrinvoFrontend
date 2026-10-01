@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Receipt, Search } from '../../components/icons.js';
+import { Plus, Receipt, Search } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, MiniStat } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -8,6 +8,7 @@ import { Badge, PaymentTag, SaleStatusBadge } from '../../components/ui/Badge.js
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { Select } from '../../components/ui/Form.jsx';
 import { Avatar } from '../../components/ui/Media.jsx';
+import { LogSaleModal } from '../../components/modals/SaleModals.jsx';
 import { useApi, useDebounce } from '../../hooks/useApi.js';
 import { salesService, staffService } from '../../services/index.js';
 import { money, num, shortDateTime } from '../../utils/format.js';
@@ -32,6 +33,7 @@ export default function Sales() {
   const [params] = useSearchParams();
   const [f, setF] = useState({ ...EMPTY, q: params.get('q') || '', range: params.get('range') || (params.get('q') ? 'all' : '7d') });
   const [page, setPage] = useState(1);
+  const [logging, setLogging] = useState(false);
   const q = useDebounce(f.q);
   const navigate = useNavigate();
   const staff = useApi(() => staffService.list(), []);
@@ -48,7 +50,15 @@ export default function Sales() {
 
   return (
     <Page>
-      <PageHeader title="Sales" subtitle="Every sale, who bought it and who sold it." />
+      <PageHeader
+        title="Sales"
+        subtitle="Every sale, who bought it and who sold it."
+        actions={
+          <Button variant="primary" icon={Plus} onClick={() => setLogging(true)}>
+            Log a Sale
+          </Button>
+        }
+      />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MiniStat label="Sales" value={num(t.count)} />
         <MiniStat label="Revenue" value={money(t.revenue)} />
@@ -151,6 +161,7 @@ export default function Sales() {
           <EmptyState icon={Receipt} title="No sales match" text="Your sales will appear here once a transaction matches these filters." action={<Button onClick={() => set({ ...EMPTY, range: 'all' })}>Clear filters</Button>} />
         )}
       </Card>
+      <LogSaleModal open={logging} onClose={() => setLogging(false)} onDone={reload} />
     </Page>
   );
 }

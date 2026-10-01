@@ -12,7 +12,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { getLocalSale } from '../../offline/localSales.js';
 import { subscribeSync } from '../../offline/syncManager.js';
 import { salesService } from '../../services/index.js';
-import { fmtTime, money, PAYMENT_LABEL, plural } from '../../utils/format.js';
+import { money, PAYMENT_LABEL, plural, shortDateTime } from '../../utils/format.js';
 
 export default function SaleComplete() {
   const { id } = useParams();
@@ -57,7 +57,7 @@ export default function SaleComplete() {
       <div>
         <h1 className="text-[26px] font-bold">Sale Completed</h1>
         <p className="mt-1 text-[13.5px] text-ink-3">
-          Receipt {s.receiptNumber} · {fmtTime(s.createdAt)}
+          Receipt {s.receiptNumber} · {shortDateTime(s.createdAt)}
         </p>
         {s.syncStatus && (
           <div className="mt-2 flex justify-center">

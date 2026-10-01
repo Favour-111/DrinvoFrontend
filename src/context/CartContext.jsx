@@ -16,7 +16,8 @@ export const lineBelowMinimum = (line) => {
 const CartContext = createContext(null);
 const KEY = 'drinvo.cart';
 // partAmount / partWith: what the customer pays now on a part payment
-const EMPTY = { lines: [], paymentMethod: 'CASH', customer: null, partAmount: '', partWith: 'CASH' };
+// backdatedAt: set when logging a past sale (e.g. migrating paper records); null means "now"
+const EMPTY = { lines: [], paymentMethod: 'CASH', customer: null, partAmount: '', partWith: 'CASH', backdatedAt: null };
 
 function load() {
   try {
@@ -62,6 +63,7 @@ export function CartProvider({ children }) {
   const setPart = useCallback((patch) => setCart((c) => ({ ...c, ...patch })), []);
   const setPayment = useCallback((paymentMethod) => setCart((c) => ({ ...c, paymentMethod })), []);
   const setCustomer = useCallback((customer) => setCart((c) => ({ ...c, customer })), []);
+  const setBackdatedAt = useCallback((backdatedAt) => setCart((c) => ({ ...c, backdatedAt })), []);
 
   /** Refreshes product snapshots (stock, prices) from the latest product list. */
   const syncProducts = useCallback((products) => {
@@ -97,9 +99,10 @@ export function CartProvider({ children }) {
       setPayment,
       setCustomer,
       setPart,
+      setBackdatedAt,
       syncProducts,
     };
-  }, [cart, add, update, remove, clear, setPayment, setCustomer, setPart, syncProducts]);
+  }, [cart, add, update, remove, clear, setPayment, setCustomer, setPart, setBackdatedAt, syncProducts]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Check, Pencil, Search, ShoppingCart, Trash2, X } from '../../components/icons.js';
+import { AlertTriangle, ArrowRight, Calendar, Check, Pencil, Search, ShoppingCart, Trash2, X } from '../../components/icons.js';
 import { Chips } from '../../components/ui/Nav.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { PAYMENT_ICON } from '../../components/ui/Badge.jsx';
@@ -18,7 +18,7 @@ import { useToast } from '../../context/ToastContext.jsx';
 import { createLocalSale } from '../../offline/createLocalSale.js';
 import { patchLocalProducts } from '../../offline/catalogSync.js';
 import { customerService } from '../../services/index.js';
-import { money, PAYMENT_LABEL } from '../../utils/format.js';
+import { isoDate, money, PAYMENT_LABEL } from '../../utils/format.js';
 import { availableUnits, conversionFor, describeStock, mergeStockRows, minimumFor, priceFor, UNIT_LABEL } from '../../utils/units.js';
 import { cn } from '../../utils/cn.js';
 
@@ -316,6 +316,31 @@ export default function NewSale() {
                 <span className="text-ink-3">Discount given</span>
                 <span className="tnum font-semibold text-warn">−{money(cart.totalDiscount)}</span>
               </div>
+            )}
+            {cart.backdatedAt ? (
+              <Field label="Sale date" htmlFor="backdate" hint="This is a past sale — it’ll be counted under this date in reports, and stock is removed now.">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="backdate"
+                    type="date"
+                    className="input"
+                    value={isoDate(new Date(cart.backdatedAt))}
+                    max={isoDate()}
+                    onChange={(e) => e.target.value && cart.setBackdatedAt(new Date(`${e.target.value}T12:00:00`).toISOString())}
+                  />
+                  <Button type="button" size="sm" variant="ghost" onClick={() => cart.setBackdatedAt(null)}>
+                    Use today
+                  </Button>
+                </div>
+              </Field>
+            ) : (
+              <button
+                type="button"
+                onClick={() => cart.setBackdatedAt(new Date(`${isoDate(new Date(Date.now() - 864e5))}T12:00:00`).toISOString())}
+                className="flex items-center gap-1.5 self-start text-[12.5px] font-semibold text-brand-ink hover:underline"
+              >
+                <Calendar size={13} /> Logging a past sale? Backdate it
+              </button>
             )}
             <div>
               <div className="label mb-1.5">Payment</div>

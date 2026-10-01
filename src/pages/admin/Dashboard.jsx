@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, Package, Plus, Receipt, ShoppingCart, TrendingUp, Truck } from '../../components/icons.js';
+import { Check, Package, Plus, Receipt, ShoppingCart, TrendingUp, Truck, Wallet } from '../../components/icons.js';
 import { Page, PageHeader, Tabs, RANGE_OPTIONS } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader, CardLink, StatBar } from '../../components/ui/Card.jsx';
 import { Button, ButtonLink } from '../../components/ui/Button.jsx';
@@ -55,6 +55,14 @@ export default function Dashboard() {
           { key: 'profit', label: 'Today’s Profit', value: money(today.grossProfit), icon: TrendingUp, to: '/admin/reports', footer: <><Delta current={today.grossProfit} previous={yesterday.grossProfit} /> vs yesterday</> },
           { key: 'tx', label: 'Transactions', value: num(today.transactions), icon: ShoppingCart, to: '/admin/sales?range=today', footer: `${num(today.unitsSold)} bottles sold today` },
           { key: 'inv', label: 'Inventory Value', value: money(inventory.inventoryValue), icon: Package, to: '/admin/inventory', footer: `${inventory.variantCount} sizes in stock` },
+          {
+            key: 'collected',
+            label: 'Cash Collected Today',
+            value: money(today.cashCollected),
+            icon: Wallet,
+            to: '/admin/customers',
+            footer: <><Delta current={today.cashCollected} previous={yesterday.cashCollected} /> vs yesterday</>,
+          },
         ]}
       />
 
