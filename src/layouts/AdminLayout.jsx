@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity, BarChart3, Bell, Bottle, Check, ChevronDown, ChevronRight, LayoutGrid, LogOut, Menu, Package, Plus, Receipt, Search, Settings, Store, Truck, User, Users, Wallet, X,
+  Activity, ArrowLeftRight, BarChart3, Bell, Bottle, Check, ChevronDown, ChevronRight, LayoutGrid, LogOut, Menu, Package, Plus, Receipt, Search, Settings, Store, Truck, User, Users, Wallet, X,
 } from '../components/icons.js';
 import { Avatar, Logo, ProductThumb } from '../components/ui/Media.jsx';
 import { IconButton } from '../components/ui/Button.jsx';
@@ -15,11 +15,18 @@ import { cn } from '../utils/cn.js';
 
 // Flat list: the daily pages first, business admin after the divider
 const NAV = [
-  [['/admin/dashboard', 'Dashboard', LayoutGrid], ['/admin/sales', 'Sales', Receipt], ['/admin/customers', 'Customers', Wallet], ['/admin/products', 'Products', Bottle], ['/admin/inventory', 'Inventory', Package]],
+  [
+    ['/admin/dashboard', 'Dashboard', LayoutGrid],
+    ['/admin/sales', 'Sales', Receipt],
+    ['/admin/customers', 'Customers', Wallet],
+    ['/admin/products', 'Products', Bottle],
+    ['/admin/inventory', 'Inventory', Package],
+    ['/admin/transfers', 'Transfers', ArrowLeftRight],
+  ],
   [['/admin/suppliers', 'Suppliers', Truck], ['/admin/staff', 'Staff', Users], ['/admin/reports', 'Reports', BarChart3], ['/admin/activity', 'Activity', Activity], ['/admin/settings', 'Settings', Settings]],
 ];
 const TITLES = {
-  dashboard: 'Dashboard', products: 'Products', inventory: 'Inventory', suppliers: 'Suppliers', sales: 'Sales', customers: 'Customers',
+  dashboard: 'Dashboard', products: 'Products', inventory: 'Inventory', transfers: 'Stock Transfers', suppliers: 'Suppliers', sales: 'Sales', customers: 'Customers',
   staff: 'Staff', reports: 'Reports & Analytics', activity: 'Activity', settings: 'Settings', profile: 'Profile',
 };
 

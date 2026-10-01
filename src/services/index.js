@@ -28,12 +28,19 @@ export const productService = {
 };
 
 export const inventoryService = {
-  list: (params) => get('/inventory', clean(params)),
+  // shopId: 'all' is a meaningful value (aggregate every shop), so it must survive clean()'s usual "all means no filter" stripping.
+  list: ({ shopId, ...rest } = {}) => get('/inventory', { ...clean(rest), ...(shopId ? { shopId } : {}) }),
   get: (variantId) => get(`/inventory/${variantId}`),
   movements: (params) => get('/inventory/movements', clean(params)),
   restock: (body) => post('/inventory/restock', body),
   adjust: (body) => post('/inventory/adjustments', body),
   purchases: (params) => get('/purchases', clean(params)),
+};
+
+export const transferService = {
+  list: (params) => get('/transfers', clean(params)),
+  get: (id) => get(`/transfers/${id}`),
+  create: (body) => post('/transfers', body),
 };
 
 export const salesService = {

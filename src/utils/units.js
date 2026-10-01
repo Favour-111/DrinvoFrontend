@@ -14,6 +14,13 @@ export function priceFor(v, unit) {
   return own > 0 ? own : v.sellingPrice * c;
 }
 
+/** Lowest allowed selling price for one `unit`, scaled the same way as priceFor. 0 means no floor. */
+export function minimumFor(v, unit) {
+  const c = conversionFor(v, unit);
+  if (!c) return 0;
+  return (Number(v?.minimumSellingPrice) || 0) * c;
+}
+
 const plural = (n, w) => `${Math.round(n).toLocaleString('en-US')} ${w}${n === 1 ? '' : 's'}`;
 export const unitQty = (qty, unit) => plural(qty, unit);
 

@@ -19,51 +19,64 @@ import { createLocalSale } from '../../offline/createLocalSale.js';
 import { patchLocalProducts } from '../../offline/catalogSync.js';
 import { customerService } from '../../services/index.js';
 import { money, PAYMENT_LABEL } from '../../utils/format.js';
-import { availableUnits, conversionFor, describeStock, mergeStockRows, priceFor, UNIT_LABEL } from '../../utils/units.js';
+import { availableUnits, conversionFor, describeStock, mergeStockRows, minimumFor, priceFor, UNIT_LABEL } from '../../utils/units.js';
 import { cn } from '../../utils/cn.js';
 
-/** Per-unit price for a cart line: catalog price by default, editable down to a discounted amount. */
+/** Per-unit price for a cart line: type the price to sell at directly (can be above or below the
+ * catalog price), checked live against the product's minimum selling price. */
 function PriceEditor({ product, unit, override, onChange }) {
   const [editing, setEditing] = useState(false);
-  const catalogPrice = priceFor(product, unit);
-  const discounted = override != null && override < catalogPrice;
+  const listPrice = priceFor(product, unit);
+  const min = minimumFor(product, unit);
+  const price = override != null ? override : listPrice;
+  const discount = Math.max(0, listPrice - price);
+  const belowMin = min > 0 && price < min;
 
-  const commit = (raw) => {
+  // Commits on every keystroke (not just blur) so the cart total and minimum-price check update live.
+  const setPrice = (raw) => {
     const n = Number(raw);
-    if (!Number.isFinite(n) || n <= 0 || n >= catalogPrice) onChange(undefined);
-    else onChange(Math.round(n * 100) / 100);
-    setEditing(false);
+    if (!Number.isFinite(n) || raw === '') onChange(undefined);
+    else onChange(Math.max(0, Math.round(n * 100) / 100));
   };
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-        <span className="text-[12px] text-ink-3">₦</span>
-        <input
-          type="number"
-          inputMode="decimal"
-          min={0}
-          max={catalogPrice}
-          autoFocus
-          defaultValue={override ?? catalogPrice}
-          onBlur={(e) => commit(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur();
-            if (e.key === 'Escape') setEditing(false);
-          }}
-          className="input h-6 w-20 px-1.5 py-0 text-[12px]"
-          aria-label={`Price per ${unit} for ${product.name}`}
-        />
-        <span className="text-[11px] text-ink-3">/ {unit}</span>
+      <div className="flex flex-col gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[12px] text-ink-3">₦</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            autoFocus
+            value={override ?? ''}
+            placeholder={String(listPrice)}
+            onChange={(e) => setPrice(e.target.value)}
+            onBlur={() => setEditing(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur();
+            }}
+            className="input h-6 w-20 px-1.5 py-0 text-[12px]"
+            aria-invalid={belowMin ? 'true' : undefined}
+            aria-label={`Price per ${unit} for ${product.name}`}
+          />
+          <span className="text-[11px] text-ink-3">/ {unit}</span>
+        </div>
+        {belowMin && (
+          <span className="flex items-center gap-1 text-[11px] font-semibold text-bad">
+            <AlertTriangle size={11} className="flex-none" /> Below minimum price of {money(min)}.
+          </span>
+        )}
       </div>
     );
   }
 
   return (
     <button type="button" onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-[12px] text-ink-3 hover:text-brand-ink">
-      {discounted && <span className="line-through">{money(catalogPrice)}</span>}
-      <span className={discounted ? 'font-semibold text-ink' : ''}>{money(override ?? catalogPrice)}</span>
+      {discount > 0 && <span className="line-through">{money(listPrice)}</span>}
+      <span className={discount > 0 ? 'font-semibold text-ink' : ''}>{money(price)}</span>
       <span>per {unit}</span>
+      {discount > 0 && <span className="font-semibold text-warn">−{money(discount)}</span>}
       <Pencil size={10} />
     </button>
   );
@@ -177,12 +190,11 @@ export default function NewSale() {
   }, [items, q, category]);
 
   const inCart = (id) => cart.lines.filter((l) => l.product.variantId === id).reduce((s, l) => s + l.quantity, 0);
-  const totalDiscount = cart.lines.reduce((s, l) => s + l.quantity * (priceFor(l.product, l.unit) - linePrice(l)), 0);
   const isPart = cart.paymentMethod === 'PART';
   const onAccount = isPart || cart.paymentMethod === 'CREDIT';
   const partPaid = Number(cart.partAmount) || 0;
   const partError = isPart && cart.total > 0 && partPaid >= cart.total ? 'That covers the whole bill. Choose Cash, POS or Transfer instead.' : '';
-  const blocked = !cart.lines.length || cart.shortages.size > 0 || !cart.customer || (isPart && (!(partPaid > 0) || partError));
+  const blocked = !cart.lines.length || cart.shortages.size > 0 || cart.priceErrors.size > 0 || !cart.customer || (isPart && (!(partPaid > 0) || partError));
 
   // Local-first: the sale is written to this device and the cart clears immediately — the staff
   // member never waits on the network. Syncing to the server happens in the background from here.
@@ -299,10 +311,10 @@ export default function NewSale() {
               </span>
               <b className="tnum text-[24px] font-bold tracking-[-0.03em]">{money(cart.total)}</b>
             </div>
-            {totalDiscount > 0 && (
+            {cart.totalDiscount > 0 && (
               <div className="flex items-baseline justify-between text-[12.5px]">
                 <span className="text-ink-3">Discount given</span>
-                <span className="tnum font-semibold text-warn">−{money(totalDiscount)}</span>
+                <span className="tnum font-semibold text-warn">−{money(cart.totalDiscount)}</span>
               </div>
             )}
             <div>
@@ -362,6 +374,8 @@ export default function NewSale() {
           </Button>
           {cart.shortages.size > 0 ? (
             <p className="text-center text-[12.5px] text-bad">Fix the highlighted items. Stock can’t go below zero.</p>
+          ) : cart.priceErrors.size > 0 ? (
+            <p className="text-center text-[12.5px] text-bad">Fix the highlighted discount. Price can’t go below the minimum.</p>
           ) : cart.lines.length > 0 && !cart.customer ? (
             <p className="text-center text-[12.5px] text-ink-3">Add the customer’s name and phone to complete the sale.</p>
           ) : null}

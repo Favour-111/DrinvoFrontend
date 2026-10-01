@@ -67,7 +67,8 @@ const MOVEMENT = {
   SUPPLIER_RETURN: ['Returned to supplier', 'warn'],
   ADJUSTMENT: ['Stock correction', 'neutral'],
   SALE_VOID: ['Sale voided', 'neutral'],
-  TRANSFER: ['Transfer', 'info'],
+  TRANSFER_OUT: ['Transferred out', 'info'],
+  TRANSFER_IN: ['Transferred in', 'ok'],
 };
 export const movementLabel = (type) => MOVEMENT[type]?.[0] || type;
 export function MovementType({ type }) {

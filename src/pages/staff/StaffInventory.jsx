@@ -1,19 +1,25 @@
 import { useMemo, useState } from 'react';
-import { Search } from '../../components/icons.js';
+import { ArrowLeftRight, Search } from '../../components/icons.js';
 import { Page, Tabs } from '../../components/ui/Nav.jsx';
 import { Card } from '../../components/ui/Card.jsx';
+import { Button } from '../../components/ui/Button.jsx';
 import { StockBadge } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
+import { TransferModal } from '../../components/modals/StockModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { inventoryService } from '../../services/index.js';
 import { money } from '../../utils/format.js';
 import { describeStock } from '../../utils/units.js';
 
-/** Read-only stock view for staff. The API strips cost fields for this role. */
+/** Stock view for staff: read-only for levels (the API strips cost fields for this role), but
+ * staff can record a transfer to move stock between shops. */
 export default function StaffInventory() {
+  const { shops } = useAuth();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
+  const [transferring, setTransferring] = useState(false);
   const { data, error, reload } = useApi(() => inventoryService.list(), []);
   const items = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -25,9 +31,16 @@ export default function StaffInventory() {
 
   return (
     <Page>
-      <div>
-        <h1 className="text-[22px] font-bold">Inventory</h1>
-        <p className="mt-1 text-[13.5px] text-ink-3">What’s available to sell right now. Only admins can change stock.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[22px] font-bold">Inventory</h1>
+          <p className="mt-1 text-[13.5px] text-ink-3">What’s available to sell right now.</p>
+        </div>
+        {shops.length > 1 && (
+          <Button icon={ArrowLeftRight} onClick={() => setTransferring(true)}>
+            Transfer Stock
+          </Button>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
         <label className="relative w-full sm:max-w-[360px] sm:flex-1">
@@ -67,6 +80,7 @@ export default function StaffInventory() {
           <EmptyState icon={Search} title="No drinks found" text="Try another search." />
         )}
       </Card>
+      <TransferModal open={transferring} onClose={() => setTransferring(false)} onDone={reload} />
     </Page>
   );
 }

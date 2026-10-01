@@ -239,6 +239,7 @@ const schema = z.object({
   receiptPrefix: z.string().trim().min(1, 'Enter a prefix').max(10),
   receiptFooter: z.string().trim().max(200),
   showStaffOnReceipt: z.boolean(),
+  showDiscountOnReceipt: z.boolean(),
   shopName: z.string().trim().min(2, 'Enter a shop name'),
   shopAddress: z.string().trim().max(240),
   shopPhone: z.string().trim().max(40),
@@ -285,12 +286,27 @@ export default function Settings() {
     if (!data) return;
     const [b, shops] = data;
     const s = shops.find((x) => x.id === shop?.id) || shops[0];
-    form.reset({ name: b.name, receiptPrefix: b.receiptPrefix, receiptFooter: b.receiptFooter, showStaffOnReceipt: b.showStaffOnReceipt, shopName: s.name, shopAddress: s.address, shopPhone: s.phone });
+    form.reset({
+      name: b.name,
+      receiptPrefix: b.receiptPrefix,
+      receiptFooter: b.receiptFooter,
+      showStaffOnReceipt: b.showStaffOnReceipt,
+      showDiscountOnReceipt: b.showDiscountOnReceipt ?? true,
+      shopName: s.name,
+      shopAddress: s.address,
+      shopPhone: s.phone,
+    });
   }, [data, shop?.id, form]);
 
   const submit = form.handleSubmit(async (v) => {
     try {
-      const b = await settingsService.updateBusiness({ name: v.name, receiptPrefix: v.receiptPrefix, receiptFooter: v.receiptFooter, showStaffOnReceipt: v.showStaffOnReceipt });
+      const b = await settingsService.updateBusiness({
+        name: v.name,
+        receiptPrefix: v.receiptPrefix,
+        receiptFooter: v.receiptFooter,
+        showStaffOnReceipt: v.showStaffOnReceipt,
+        showDiscountOnReceipt: v.showDiscountOnReceipt,
+      });
       await settingsService.updateShop(shop.id, { name: v.shopName, address: v.shopAddress, phone: v.shopPhone });
       updateBusiness(b);
       await refresh();
@@ -327,6 +343,13 @@ export default function Settings() {
             <label className="flex items-center justify-between gap-3 rounded-[16px] border border-line-2 bg-surface-2 px-3.5 py-3 text-[13.5px]">
               <span>Show staff name on receipts</span>
               <Switch checked={Boolean(form.watch('showStaffOnReceipt'))} onChange={(v) => form.setValue('showStaffOnReceipt', v, { shouldDirty: true })} label="Show staff name on receipts" />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-[16px] border border-line-2 bg-surface-2 px-3.5 py-3 text-[13.5px]">
+              <span>
+                Show discounts on customer receipts
+                <small className="block text-[12px] text-ink-3">Turn off to hide discount amounts from printed/shared receipts. Admin sale records always show the full discount.</small>
+              </span>
+              <Switch checked={Boolean(form.watch('showDiscountOnReceipt'))} onChange={(v) => form.setValue('showDiscountOnReceipt', v, { shouldDirty: true })} label="Show discounts on customer receipts" />
             </label>
           </div>
         </Section>

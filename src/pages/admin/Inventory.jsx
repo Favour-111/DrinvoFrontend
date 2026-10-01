@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Ban, ChevronRight, Package, Search, SlidersHorizontal, Truck, Wallet } from '../../components/icons.js';
+import { AlertTriangle, Ban, ChevronRight, Package, Search, SlidersHorizontal, Store, Truck, Wallet } from '../../components/icons.js';
 import { Page, PageHeader, Tabs } from '../../components/ui/Nav.jsx';
 import { Card, StatCard } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { StockBadge, Tag } from '../../components/ui/Badge.jsx';
+import { Select } from '../../components/ui/Form.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductCell } from '../../components/ui/Media.jsx';
 import { AdjustModal, RestockModal } from '../../components/modals/StockModals.jsx';
 import { useApi, useDebounce } from '../../hooks/useApi.js';
 import { useStockUpdates } from '../../hooks/useStockUpdates.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { inventoryService } from '../../services/index.js';
 import { money, num } from '../../utils/format.js';
 import { equivalent, mergeStockRows, summarizeStock } from '../../utils/units.js';
@@ -26,24 +28,29 @@ function Equivalent({ item, unit }) {
 }
 
 export default function Inventory() {
+  const { shop, shops } = useAuth();
   const [params, setParams] = useSearchParams();
   const status = params.get('status') || 'all';
   const [q, setQ] = useState('');
   const [modal, setModal] = useState(null);
+  const [shopId, setShopId] = useState('');
   const debounced = useDebounce(q);
   const navigate = useNavigate();
-  const { data, error, loading, reload, setData } = useApi(() => inventoryService.list({ q: debounced, status }), [debounced, status]);
+  const viewingActiveShop = !shopId || shopId === shop?.id;
+  const { data, error, loading, reload, setData } = useApi(() => inventoryService.list({ q: debounced, status, shopId }), [debounced, status, shopId]);
 
-  // Filtered/searched views can't recompute exact totals from a partial row set, so only
-  // patch the summary card when showing everything; the row list itself always stays live.
-  useStockUpdates((rows) =>
+  // Live stock pushes arrive for the active shop only — merging them while viewing a different
+  // shop (or the "All Shops" aggregate) would patch the wrong numbers, so skip it then; Restock,
+  // Adjust and Transfer already call reload() themselves when they change something.
+  useStockUpdates((rows) => {
+    if (!viewingActiveShop) return;
     setData((d) => {
       if (!d) return d;
       const items = mergeStockRows(d.items, rows).filter((r) => status === 'all' || r.status === status);
       const summary = status === 'all' && !debounced ? summarizeStock(items) : d.summary;
       return { ...d, items, summary };
-    })
-  );
+    });
+  });
 
   const setStatus = (s) => setParams(s === 'all' ? {} : { status: s }, { replace: true });
 
@@ -83,6 +90,17 @@ export default function Inventory() {
           <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
           <input className="input pl-9" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search stock" aria-label="Search stock" />
         </label>
+        {shops.length > 1 && (
+          <Select aria-label="Shop" value={shopId} onChange={(e) => setShopId(e.target.value)} className="w-auto min-w-[150px] flex-1 sm:flex-none">
+            <option value="">{shop?.name} (current)</option>
+            <option value="all">All Shops</option>
+            {shops.filter((s) => s.id !== shop?.id).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <Tabs
           label="Stock status"
           value={status}
@@ -95,6 +113,12 @@ export default function Inventory() {
           ]}
         />
       </div>
+      {!viewingActiveShop && (
+        <p className="hint flex items-center gap-1.5">
+          <Store size={14} className="text-ink-3" />
+          Viewing {shopId === 'all' ? 'stock aggregated across all shops' : 'another shop'}. Restock and Adjust always apply to your current shop ({shop?.name}) — switch shops in the header to work in a different one, or use Transfers to move stock between them.
+        </p>
+      )}
 
       <Card flush>
         {items.length ? (

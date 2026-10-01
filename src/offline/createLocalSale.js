@@ -1,7 +1,7 @@
 import { enqueueSale } from './syncManager.js';
 import { deductLocalStock } from './catalogSync.js';
 import { conversionFor, priceFor } from '../utils/units.js';
-import { linePrice } from '../context/CartContext.jsx';
+import { lineDiscount, linePrice } from '../context/CartContext.jsx';
 
 const localId = () => `LOCAL-${crypto.randomUUID()}`;
 
@@ -21,17 +21,18 @@ export async function createLocalSale({ shop, business, staff, cart, isPart, par
     quantity: l.quantity,
     baseQuantity: l.quantity * conversionFor(l.product, l.unit),
     listPrice: priceFor(l.product, l.unit),
+    discount: lineDiscount(l),
     unitPrice: linePrice(l),
     lineTotal: l.quantity * linePrice(l),
-    ...(l.priceOverride ? { price: l.priceOverride } : {}),
+    ...(l.priceOverride != null ? { price: l.priceOverride } : {}),
   }));
   const total = lines.reduce((s, l) => s + l.lineTotal, 0);
-  const totalDiscount = lines.reduce((s, l) => s + (l.listPrice - l.unitPrice) * l.quantity, 0);
+  const totalDiscount = lines.reduce((s, l) => s + l.discount * l.quantity, 0);
   const amountPaid = isPart ? partPaid : cart.paymentMethod === 'CREDIT' ? 0 : total;
 
   const payload = {
     clientTransactionId: id,
-    items: lines.map((l) => ({ variantId: l.variantId, unit: l.unit, quantity: l.quantity, ...(l.price ? { price: l.price } : {}) })),
+    items: lines.map((l) => ({ variantId: l.variantId, unit: l.unit, quantity: l.quantity, ...(l.price != null ? { price: l.price } : {}) })),
     paymentMethod: cart.paymentMethod,
     ...(cart.customer?.id ? { customerId: cart.customer.id } : { customer: { name: cart.customer.name, phone: cart.customer.phone } }),
     ...(isPart ? { amountPaid: partPaid, paidWith: cart.partWith } : {}),
@@ -48,7 +49,7 @@ export async function createLocalSale({ shop, business, staff, cart, isPart, par
     error: null,
     status: 'COMPLETED',
     shopId: shop.id,
-    items: lines.map((l, i) => ({ id: `${id}-${i}`, variantId: l.variantId, variantName: l.name, unit: l.unit, quantity: l.quantity, unitPrice: l.unitPrice, listPrice: l.listPrice, lineTotal: l.lineTotal })),
+    items: lines.map((l, i) => ({ id: `${id}-${i}`, variantId: l.variantId, variantName: l.name, unit: l.unit, quantity: l.quantity, unitPrice: l.unitPrice, listPrice: l.listPrice, discount: l.discount, lineTotal: l.lineTotal })),
     total,
     totalDiscount,
     paymentMethod: cart.paymentMethod,

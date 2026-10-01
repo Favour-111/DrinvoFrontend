@@ -51,21 +51,36 @@ export default function SupplierDetail() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)]">
         <Card className="self-start">
-          <h3 className="mb-3.5 text-[16px] font-semibold">Contact</h3>
-          <div className="grid gap-3 text-[14px]">
-            {[
-              [User, supplier.contactName],
-              [Phone, supplier.phone],
-              [Mail, supplier.email],
-              [MapPin, supplier.address],
-            ]
-              .filter(([, v]) => v)
-              .map(([Icon, v]) => (
-                <div key={v} className="flex items-center gap-3">
-                  <Icon size={17} className="flex-none text-ink-3" />
-                  <span className="min-w-0 break-words select-all">{v}</span>
+          <h3 className="mb-3.5 text-[16px] font-semibold">Contacts</h3>
+          <div className="flex flex-col gap-3">
+            {(supplier.contacts || []).map((c, i) => (
+              <div key={i} className={i > 0 ? 'border-t border-line-2 pt-3' : ''}>
+                <div className="flex items-center gap-2 text-[14px] font-semibold">
+                  <User size={16} className="flex-none text-ink-3" />
+                  {c.name}
                 </div>
-              ))}
+                <div className="mt-1.5 grid gap-1.5 pl-[24px] text-[13.5px]">
+                  {c.phone && (
+                    <div className="flex items-center gap-2.5">
+                      <Phone size={15} className="flex-none text-ink-3" />
+                      <span className="min-w-0 break-words select-all">{c.phone}</span>
+                    </div>
+                  )}
+                  {c.email && (
+                    <div className="flex items-center gap-2.5">
+                      <Mail size={15} className="flex-none text-ink-3" />
+                      <span className="min-w-0 break-words select-all">{c.email}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {supplier.address && (
+              <div className="flex items-center gap-3 border-t border-line-2 pt-3 text-[14px]">
+                <MapPin size={17} className="flex-none text-ink-3" />
+                <span className="min-w-0 break-words select-all">{supplier.address}</span>
+              </div>
+            )}
           </div>
           <h3 className="mt-6 mb-2 text-[16px] font-semibold">Products supplied</h3>
           {products.length ? (

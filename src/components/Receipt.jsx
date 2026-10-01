@@ -12,6 +12,9 @@ const Row = ({ children, className = '' }) => <div className={`flex justify-betw
 export function Receipt({ sale }) {
   const { business, shop } = useAuth();
   const adjustments = (sale.returnedAmount || 0) + (sale.refundedAmount || 0);
+  // Admin-configurable: customers don't always need to see that a discount was applied.
+  // This only affects what's printed/shared here — admin sale records always show it in full.
+  const showDiscount = business?.showDiscountOnReceipt !== false;
   return (
     <div className="receipt">
       <div className="text-center">
@@ -41,14 +44,14 @@ export function Receipt({ sale }) {
             <span>
               {it.quantity} {it.unit}
               {it.quantity > 1 ? 's' : ''} × {money(it.unitPrice)}
-              {it.listPrice > it.unitPrice && <span className="text-[#b45309]"> (was {money(it.listPrice)})</span>}
+              {showDiscount && it.listPrice > it.unitPrice && <span className="text-[#b45309]"> (was {money(it.listPrice)})</span>}
             </span>
             <span>{money(it.lineTotal)}</span>
           </Row>
         </div>
       ))}
       <hr />
-      {sale.totalDiscount > 0 && (
+      {showDiscount && sale.totalDiscount > 0 && (
         <Row className="text-[#b45309]">
           <span>Discount</span>
           <span>−{money(sale.totalDiscount)}</span>

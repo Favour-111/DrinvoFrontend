@@ -71,6 +71,8 @@ export default function ProductDetail() {
                 ['Selling price', money(v.sellingPrice)],
                 ['Average cost', money(v.avgCost)],
                 ['Margin', pct(((v.sellingPrice - v.avgCost) / v.sellingPrice) * 100)],
+                ['Minimum price (staff can’t sell below this)', v.minimumSellingPrice > 0 ? money(v.minimumSellingPrice) : 'No limit'],
+                ...(v.minimumSellingPrice > 0 ? [['Discount room available', money(Math.max(0, v.sellingPrice - v.minimumSellingPrice))]] : []),
                 ['Stock value', money(v.inventoryValue)],
               ]}
             />

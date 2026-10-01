@@ -21,23 +21,30 @@ const DEFAULT_N = { pack: 6, carton: 24, crate: 24 };
 
 // Disabled inputs submit undefined, so fall back instead of failing for units that are switched off
 const unitRow = z.object({ on: z.boolean(), n: z.coerce.number().int().min(0).catch(0), price: z.any().optional() });
+const openQtySchema = z.union([z.coerce.number().int().min(0), z.literal('')]).optional();
 const variantSchema = z
   .object({
     id: z.string().optional(),
     size: z.string().trim().min(1, 'Enter a size, e.g. 50cl'),
-    costPrice: z.coerce.number({ invalid_type_error: 'Enter a cost price' }).positive('Enter a cost price'),
+    costPrice: z.coerce.number({ invalid_type_error: 'Enter a cost price' }).min(0, 'Cost price must be 0 or more'),
     sellingPrice: z.coerce.number({ invalid_type_error: 'Enter a selling price' }).positive('Enter a selling price'),
+    minimumSellingPrice: z.union([z.coerce.number().min(0, 'Must be 0 or more'), z.literal('')]).optional(),
     pack: unitRow,
     carton: unitRow,
     crate: unitRow,
-    openQty: z.union([z.coerce.number().int().min(0), z.literal('')]).optional(),
-    openUnit: z.string(),
+    openBottle: openQtySchema,
+    openPack: openQtySchema,
+    openCarton: openQtySchema,
+    openCrate: openQtySchema,
     lowQty: z.union([z.coerce.number().int().min(0), z.literal('')]).optional(),
     lowUnit: z.string(),
     stock: z.number().optional(),
   })
   .superRefine((v, ctx) => {
     if (v.sellingPrice < v.costPrice) ctx.addIssue({ code: 'custom', path: ['sellingPrice'], message: 'Selling price is below cost' });
+    if (Number(v.minimumSellingPrice) > v.sellingPrice) {
+      ctx.addIssue({ code: 'custom', path: ['minimumSellingPrice'], message: 'Minimum selling price cannot be higher than the default selling price.' });
+    }
     for (const u of LARGE) if (v[u].on && !(v[u].n > 1)) ctx.addIssue({ code: 'custom', path: [u, 'n'], message: `A ${u} must hold more than 1 bottle` });
   });
 const schema = z.object({
@@ -58,16 +65,21 @@ const newVariant = () => ({
   size: '',
   costPrice: '',
   sellingPrice: '',
+  minimumSellingPrice: '',
   pack: { on: true, n: 6, price: '' },
   carton: { on: true, n: 24, price: '' },
   crate: { on: false, n: 24, price: '' },
-  openQty: '',
-  openUnit: 'carton',
+  openBottle: '',
+  openPack: '',
+  openCarton: '',
+  openCrate: '',
   lowQty: '',
   lowUnit: 'carton',
 });
-
 const convOf = (v, u) => (u === 'bottle' ? 1 : v?.[u]?.on ? Number(v[u].n) || 0 : 0);
+const OPEN_FIELD = { pack: 'openPack', carton: 'openCarton', crate: 'openCrate' };
+const openingTotalBottles = (v) =>
+  (Number(v.openBottle) || 0) + LARGE.reduce((s, u) => s + (v[u]?.on ? (Number(v[OPEN_FIELD[u]]) || 0) * convOf(v, u) : 0), 0);
 
 function toForm(product, variants) {
   return {
@@ -82,11 +94,14 @@ function toForm(product, variants) {
       size: v.size,
       costPrice: v.costPrice,
       sellingPrice: v.sellingPrice,
+      minimumSellingPrice: v.minimumSellingPrice || '',
       pack: { on: v.unitConversions.pack > 0, n: v.unitConversions.pack || 6, price: v.unitPrices.pack || '' },
       carton: { on: v.unitConversions.carton > 0, n: v.unitConversions.carton || 24, price: v.unitPrices.carton || '' },
       crate: { on: v.unitConversions.crate > 0, n: v.unitConversions.crate || 24, price: v.unitPrices.crate || '' },
-      openQty: '',
-      openUnit: 'bottle',
+      openBottle: '',
+      openPack: '',
+      openCarton: '',
+      openCrate: '',
       lowQty: v.lowStockThreshold,
       lowUnit: 'bottle',
       stock: v.quantity,
@@ -107,10 +122,11 @@ function toPayload(values) {
       size: v.size,
       costPrice: Number(v.costPrice),
       sellingPrice: Number(v.sellingPrice),
+      minimumSellingPrice: Number(v.minimumSellingPrice) || 0,
       unitConversions: Object.fromEntries(LARGE.map((u) => [u, v[u].on ? Number(v[u].n) : 0])),
       unitPrices: Object.fromEntries(LARGE.map((u) => [u, v[u].on && v[u].price ? Number(v[u].price) : 0])),
       lowStockThreshold: (Number(v.lowQty) || 0) * convOf(v, v.lowUnit),
-      ...(!v.id && Number(v.openQty) > 0 ? { openingStock: { quantity: Number(v.openQty), unit: v.openUnit } } : {}),
+      ...(!v.id && openingTotalBottles(v) > 0 ? { openingStock: { quantity: openingTotalBottles(v), unit: 'bottle' } } : {}),
     })),
   };
 }
@@ -127,12 +143,81 @@ function BottleDots({ n }) {
   );
 }
 
+/** Lets an admin type a pack/carton/crate price instead and have the per-bottle price computed for them. */
+const BULK_FIELD_LABEL = { costPrice: 'cost', sellingPrice: 'selling', minimumSellingPrice: 'minimum' };
+function BulkPriceHelper({ form, path, targetField, units }) {
+  const [open, setOpen] = useState(false);
+  const [unit, setUnit] = useState(units[0]?.key);
+  const [amount, setAmount] = useState('');
+
+  useEffect(() => {
+    if (units.length && !units.some((u) => u.key === unit)) setUnit(units[0].key);
+  }, [units, unit]);
+
+  if (!units.length) return null;
+  const active = units.find((u) => u.key === unit) || units[0];
+  const per = active?.n && amount ? Math.round((Number(amount) / active.n) * 100) / 100 : null;
+
+  const apply = (amt, unitKey) => {
+    const u = units.find((x) => x.key === unitKey);
+    if (u?.n && amt) form.setValue(`${path}.${targetField}`, Math.round((Number(amt) / u.n) * 100) / 100, { shouldValidate: true, shouldDirty: true });
+  };
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="mt-1.5 text-left text-[12px] font-semibold text-brand-ink hover:underline">
+        Calculate from a {units.map((u) => u.key).join('/')} price instead
+      </button>
+    );
+  }
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      {units.length > 1 ? (
+        <select
+          aria-label={`Bulk unit for ${BULK_FIELD_LABEL[targetField]} price`}
+          className="input h-9 w-[92px] px-2 text-[12.5px] capitalize"
+          value={unit}
+          onChange={(e) => {
+            setUnit(e.target.value);
+            apply(amount, e.target.value);
+          }}
+        >
+          {units.map((u) => (
+            <option key={u.key} value={u.key}>
+              {u.key}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className="text-[12.5px] font-medium text-ink-2 capitalize">{active.key}</span>
+      )}
+      <span className="text-[12px] text-ink-3">price</span>
+      <MoneyInput
+        aria-label={`Bulk ${active.key} price for ${BULK_FIELD_LABEL[targetField]} price`}
+        className="h-9 w-28 text-[12.5px]"
+        placeholder="18500"
+        value={amount}
+        onChange={(e) => {
+          setAmount(e.target.value);
+          apply(e.target.value, unit);
+        }}
+      />
+      {per != null && <span className="text-[12px] text-ink-3">= {money(per)}/bottle</span>}
+      <button type="button" aria-label="Close bulk price calculator" onClick={() => setOpen(false)} className="text-[12px] text-ink-3 hover:text-ink">
+        Done
+      </button>
+    </div>
+  );
+}
+
 function VariantBlock({ index, form, onRemove, productName }) {
   const { register, watch, formState } = form;
   const v = watch(`variants.${index}`);
   const err = formState.errors.variants?.[index];
   const units = ['bottle', ...LARGE.filter((u) => v[u]?.on)];
+  const bulkUnits = LARGE.filter((u) => v[u]?.on && Number(v[u].n) > 0).map((u) => ({ key: u, n: Number(v[u].n) }));
   const margin = v.costPrice && v.sellingPrice ? (v.sellingPrice - v.costPrice) / v.sellingPrice : null;
+  const maxDiscount = v.sellingPrice && Number(v.minimumSellingPrice) > 0 ? Math.max(0, v.sellingPrice - Number(v.minimumSellingPrice)) : null;
   const p = `variants.${index}`;
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface-2 p-4">
@@ -144,18 +229,36 @@ function VariantBlock({ index, form, onRemove, productName }) {
           </Button>
         )}
       </div>
-      <div className="grid gap-3.5 sm:grid-cols-3">
+      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <FormField label="Size" name={`${p}.size`} register={register} errors={formState.errors} placeholder="e.g. 50cl" />
-        <FormField label="Cost price per bottle" name={`${p}.costPrice`} as="money" register={register} errors={formState.errors} placeholder="650" />
-        <FormField
-          label="Selling price per bottle"
-          name={`${p}.sellingPrice`}
-          as="money"
-          register={register}
-          errors={formState.errors}
-          placeholder="800"
-          hint={margin !== null && margin >= 0 ? `Margin ${pct(margin * 100)} · ${money(v.sellingPrice - v.costPrice)} per bottle` : undefined}
-        />
+        <div>
+          <FormField label="Cost price per bottle" name={`${p}.costPrice`} as="money" register={register} errors={formState.errors} placeholder="650" />
+          <BulkPriceHelper form={form} path={p} targetField="costPrice" units={bulkUnits} />
+        </div>
+        <div>
+          <FormField
+            label="Selling price per bottle"
+            name={`${p}.sellingPrice`}
+            as="money"
+            register={register}
+            errors={formState.errors}
+            placeholder="800"
+            hint={margin !== null && margin >= 0 ? `Margin ${pct(margin * 100)} · ${money(v.sellingPrice - v.costPrice)} per bottle` : undefined}
+          />
+          <BulkPriceHelper form={form} path={p} targetField="sellingPrice" units={bulkUnits} />
+        </div>
+        <div>
+          <FormField
+            label="Minimum selling price"
+            name={`${p}.minimumSellingPrice`}
+            as="money"
+            register={register}
+            errors={formState.errors}
+            placeholder="0"
+            hint={maxDiscount != null ? `Staff can never sell below this (max discount ${money(maxDiscount)} per bottle)` : 'The lowest price staff can sell this for. Leave at 0 for no limit.'}
+          />
+          <BulkPriceHelper form={form} path={p} targetField="minimumSellingPrice" units={bulkUnits} />
+        </div>
       </div>
 
       <div>
@@ -207,16 +310,16 @@ function VariantBlock({ index, form, onRemove, productName }) {
             <div className="input flex items-center bg-surface-2">{plural(v.stock, 'bottle')}</div>
           </Field>
         ) : (
-          <Field label="Opening stock" hint={`= ${plural((Number(v.openQty) || 0) * convOf(v, v.openUnit), 'bottle')}`}>
-            <div className="flex gap-2">
-              <Input type="number" min="0" placeholder="0" aria-label="Opening stock quantity" {...register(`${p}.openQty`)} />
-              <Select className="w-[130px]" aria-label="Opening stock unit" {...register(`${p}.openUnit`)}>
-                {units.map((u) => (
-                  <option key={u} value={u}>
-                    {u[0].toUpperCase() + u.slice(1)}s
-                  </option>
-                ))}
-              </Select>
+          <Field label="Opening stock" hint={`= ${plural(openingTotalBottles(v), 'bottle')} total`}>
+            <div className="flex flex-wrap gap-2">
+              {units.map((u) => (
+                <div key={u} className="min-w-[88px] flex-1">
+                  <label htmlFor={`${p}-open-${u}`} className="mb-1 block text-[11.5px] font-medium text-ink-3 capitalize">
+                    {u}s
+                  </label>
+                  <Input id={`${p}-open-${u}`} type="number" min="0" placeholder="0" aria-label={`Opening stock in ${u}s`} {...register(`${p}.${u === 'bottle' ? 'openBottle' : OPEN_FIELD[u]}`)} />
+                </div>
+              ))}
             </div>
           </Field>
         )}

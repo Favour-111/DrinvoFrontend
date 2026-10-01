@@ -37,7 +37,8 @@ export default function Suppliers() {
                 <div className="min-w-0">
                   <b className="block truncate text-[15px]">{s.name}</b>
                   <small className="text-ink-3">
-                    {[s.contactName, s.phone].filter(Boolean).join(' · ')}
+                    {[s.contacts?.[0]?.name, s.contacts?.[0]?.phone].filter(Boolean).join(' · ')}
+                    {s.contacts?.length > 1 && ` · +${s.contacts.length - 1} more`}
                   </small>
                 </div>
               </div>

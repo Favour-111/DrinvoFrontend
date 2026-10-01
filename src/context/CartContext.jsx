@@ -1,8 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { conversionFor, priceFor } from '../utils/units.js';
+import { conversionFor, minimumFor, priceFor } from '../utils/units.js';
 
-/** The price actually charged for a line: the staff-entered price if one was set, else the catalog price. */
-export const linePrice = (line) => line.priceOverride ?? priceFor(line.product, line.unit);
+/** The catalog (default) price for a line. */
+export const lineListPrice = (line) => priceFor(line.product, line.unit);
+/** The price actually charged for a line: the staff-entered price if one was set (can be above or below the default), else the catalog price. */
+export const linePrice = (line) => (line.priceOverride != null ? line.priceOverride : lineListPrice(line));
+/** How much was knocked off the default price — 0 if the line is at or above it (never negative). */
+export const lineDiscount = (line) => Math.max(0, lineListPrice(line) - linePrice(line));
+/** Whether the line's price is below the product's minimum selling price for this unit. */
+export const lineBelowMinimum = (line) => {
+  const min = minimumFor(line.product, line.unit);
+  return min > 0 && linePrice(line) < min;
+};
 
 const CartContext = createContext(null);
 const KEY = 'drinvo.cart';
@@ -70,11 +79,17 @@ export function CartProvider({ children }) {
       const n = need.get(l.product.variantId);
       if (n > l.product.quantity) shortages.set(l.product.variantId, { need: n, available: l.product.quantity });
     }
+    const priceErrors = new Map();
+    for (const l of cart.lines) {
+      if (lineBelowMinimum(l)) priceErrors.set(l.key, { min: minimumFor(l.product, l.unit) });
+    }
     return {
       ...cart,
       total: cart.lines.reduce((s, l) => s + l.quantity * linePrice(l), 0),
+      totalDiscount: cart.lines.reduce((s, l) => s + l.quantity * lineDiscount(l), 0),
       count: cart.lines.reduce((s, l) => s + l.quantity, 0),
       shortages,
+      priceErrors,
       add,
       update,
       remove,

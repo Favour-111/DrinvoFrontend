@@ -29,6 +29,7 @@ const ProductForm = lazy(() => import('./pages/admin/ProductForm.jsx'));
 const ProductDetail = lazy(() => import('./pages/admin/ProductDetail.jsx'));
 const Inventory = lazy(() => import('./pages/admin/Inventory.jsx'));
 const InventoryDetail = lazy(() => import('./pages/admin/InventoryDetail.jsx'));
+const Transfers = lazy(() => import('./pages/admin/Transfers.jsx'));
 const Sales = lazy(() => import('./pages/admin/Sales.jsx'));
 const SaleDetail = lazy(() => import('./pages/admin/SaleDetail.jsx'));
 const Suppliers = lazy(() => import('./pages/admin/Suppliers.jsx'));
@@ -64,6 +65,7 @@ export default function App() {
                   <Route path="products/:id/edit" element={page(<ProductForm />)} />
                   <Route path="inventory" element={page(<Inventory />)} />
                   <Route path="inventory/:id" element={page(<InventoryDetail />)} />
+                  <Route path="transfers" element={page(<Transfers />)} />
                   <Route path="sales" element={page(<Sales />)} />
                   <Route path="sales/:id" element={page(<SaleDetail />)} />
                   <Route path="suppliers" element={page(<Suppliers />)} />

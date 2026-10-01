@@ -93,7 +93,7 @@ export default function Products() {
           <TableSkeleton />
         ) : data.items.length ? (
           <div className="overflow-x-auto">
-            <table className="table min-w-[860px]">
+            <table className="table min-w-[960px]">
               <thead>
                 <tr>
                   <th>Product</th>
@@ -101,6 +101,7 @@ export default function Products() {
                   <th>Category</th>
                   <th className="num">Cost Price</th>
                   <th className="num">Selling Price</th>
+                  <th className="num">Minimum Price</th>
                   <th>Stock</th>
                   <th>Status</th>
                   <th className="num">Actions</th>
@@ -118,6 +119,7 @@ export default function Products() {
                     <td>{v.category}</td>
                     <td className="num">{money(v.avgCost)}</td>
                     <td className="num font-semibold">{money(v.sellingPrice)}</td>
+                    <td className="num text-ink-3">{v.minimumSellingPrice > 0 ? money(v.minimumSellingPrice) : '—'}</td>
                     <td className="tnum">
                       <b className="font-semibold">{num(v.quantity)} bottles</b>
                       <br />

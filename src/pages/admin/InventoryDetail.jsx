@@ -21,6 +21,7 @@ const FILTERS = [
   ['SALE', 'Sales'],
   ['CUSTOMER_RETURN,SALE_VOID', 'Returns'],
   ['DAMAGED,LOST,EXPIRED,SUPPLIER_RETURN,ADJUSTMENT', 'Adjustments'],
+  ['TRANSFER_IN,TRANSFER_OUT', 'Transfers'],
 ];
 
 export default function InventoryDetail() {
@@ -103,10 +104,29 @@ export default function InventoryDetail() {
           />
         </Card>
 
-        <Card flush>
-          <CardHeader flush title="Inventory Movement History" action={<Chips label="Movement type" options={FILTERS} value={filter} onChange={setFilter} />} />
-          <MovementsTable movements={movements} />
-        </Card>
+        <div className="flex flex-col gap-4">
+          {data.byShop && (
+            <Card>
+              <h3 className="mb-3 text-[16px] font-semibold">Stock by shop</h3>
+              <div className="flex flex-col gap-2">
+                {data.byShop.map((s) => (
+                  <div key={s.shopId} className="flex items-center justify-between border-b border-line-2 py-2 text-[13.5px] last:border-0">
+                    <span className="text-ink-2">{s.shopName}</span>
+                    <b className="tnum">{plural(s.quantity, 'bottle')}</b>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-1.5 text-[13.5px] font-semibold">
+                  <span>Total across shops</span>
+                  <b className="tnum">{plural(data.byShop.reduce((s, x) => s + x.quantity, 0), 'bottle')}</b>
+                </div>
+              </div>
+            </Card>
+          )}
+          <Card flush>
+            <CardHeader flush title="Inventory Movement History" action={<Chips label="Movement type" options={FILTERS} value={filter} onChange={setFilter} />} />
+            <MovementsTable movements={movements} />
+          </Card>
+        </div>
       </div>
 
       <RestockModal open={modal === 'restock'} onClose={() => setModal(null)} variantId={id} onDone={reload} />

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { ShieldCheck } from '../icons.js';
+import { Plus, ShieldCheck, Trash2 } from '../icons.js';
 import { Modal } from '../ui/Modal.jsx';
 import { Button } from '../ui/Button.jsx';
 import { DetailList } from '../ui/Card.jsx';
@@ -33,18 +33,28 @@ function useEntityForm(schema, defaults, open) {
 const phone = z.string().trim().min(7, 'Enter a valid phone number');
 
 /* ---------- supplier ---------- */
+const supplierContactSchema = z.object({
+  name: z.string().trim().min(1, 'Enter a name'),
+  phone: z.string().trim().optional(),
+  email: z.string().trim().email('Enter a valid email').or(z.literal('')).optional(),
+});
 const supplierSchema = z.object({
   name: z.string().trim().min(2, 'Enter a supplier name'),
-  contactName: z.string().trim().optional(),
-  phone,
-  email: z.string().trim().email('Enter a valid email').or(z.literal('')),
+  contacts: z.array(supplierContactSchema).min(1, 'Add at least one contact person'),
   address: z.string().trim().optional(),
 });
+const emptyContact = { name: '', phone: '', email: '' };
 
 export function SupplierModal({ open, onClose, supplier, onDone }) {
   const toast = useToast();
   const edit = Boolean(supplier);
-  const f = useEntityForm(supplierSchema, { name: supplier?.name || '', contactName: supplier?.contactName || '', phone: supplier?.phone || '', email: supplier?.email || '', address: supplier?.address || '' }, open);
+  const defaults = {
+    name: supplier?.name || '',
+    contacts: supplier?.contacts?.length ? supplier.contacts.map((c) => ({ name: c.name || '', phone: c.phone || '', email: c.email || '' })) : [emptyContact],
+    address: supplier?.address || '',
+  };
+  const f = useEntityForm(supplierSchema, defaults, open);
+  const { fields, append, remove } = useFieldArray({ control: f.control, name: 'contacts' });
   const submit = f.handleSubmit(async (values) => {
     try {
       const res = edit ? await supplierService.update(supplier.id, values) : await supplierService.create(values);
@@ -73,11 +83,31 @@ export function SupplierModal({ open, onClose, supplier, onDone }) {
       <form onSubmit={submit} className="flex flex-col gap-3.5">
         <FormError message={f.serverError} />
         <FormField label="Name" name="name" register={f.register} errors={f.formState.errors} placeholder="e.g. ABC Beverages Ltd" />
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <FormField label="Contact person" name="contactName" register={f.register} errors={f.formState.errors} />
-          <FormField label="Phone" name="phone" type="tel" register={f.register} errors={f.formState.errors} />
+        <div>
+          <div className="label mb-1.5">Contact people</div>
+          <div className="flex flex-col gap-2.5">
+            {fields.map((field, i) => (
+              <div key={field.id} className="flex flex-col gap-2 rounded-[14px] border border-line-2 bg-surface-2 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] font-semibold text-ink-3">Contact {i + 1}</span>
+                  {fields.length > 1 && (
+                    <button type="button" aria-label={`Remove contact ${i + 1}`} onClick={() => remove(i)} className="flex items-center gap-1 text-[12px] font-semibold text-bad">
+                      <Trash2 size={13} /> Remove
+                    </button>
+                  )}
+                </div>
+                <div className="grid gap-2.5 sm:grid-cols-3">
+                  <FormField label="Name" name={`contacts.${i}.name`} register={f.register} errors={f.formState.errors} />
+                  <FormField label="Phone" name={`contacts.${i}.phone`} type="tel" register={f.register} errors={f.formState.errors} />
+                  <FormField label="Email" name={`contacts.${i}.email`} type="email" register={f.register} errors={f.formState.errors} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <Button type="button" size="sm" icon={Plus} className="mt-2.5" onClick={() => append(emptyContact)}>
+            Add another contact
+          </Button>
         </div>
-        <FormField label="Email" name="email" type="email" register={f.register} errors={f.formState.errors} />
         <FormField label="Address" name="address" register={f.register} errors={f.formState.errors} />
       </form>
     </Modal>
