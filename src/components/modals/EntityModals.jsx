@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Plus, ShieldCheck, Trash2 } from '../icons.js';
+import { AlertTriangle, Plus, ShieldCheck, Trash2 } from '../icons.js';
 import { Modal } from '../ui/Modal.jsx';
 import { Button } from '../ui/Button.jsx';
 import { DetailList } from '../ui/Card.jsx';
-import { FormError, FormField } from '../ui/Form.jsx';
+import { Field, FormError, FormField, Input } from '../ui/Form.jsx';
 import { customerService, settingsService, staffService, supplierService } from '../../services/index.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -110,6 +110,77 @@ export function SupplierModal({ open, onClose, supplier, onDone }) {
         </div>
         <FormField label="Address" name="address" register={f.register} errors={f.formState.errors} />
       </form>
+    </Modal>
+  );
+}
+
+/** Strong confirmation before a destructive action: the Delete button only enables once the
+ * admin has typed the supplier's name exactly, so a stray click can't delete the wrong one. */
+export function DeleteSupplierModal({ open, onClose, supplier, onDone }) {
+  const toast = useToast();
+  const [confirmName, setConfirmName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      setConfirmName('');
+      setError('');
+    }
+  }, [open]);
+
+  if (!supplier) return null;
+  const matches = confirmName.trim().length > 0 && confirmName.trim() === supplier.name;
+
+  const run = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await supplierService.delete(supplier.id, confirmName.trim());
+      toast.success('Supplier deleted.');
+      onDone?.();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={busy ? undefined : onClose}
+      size="sm"
+      title={`Delete ${supplier.name}?`}
+      footer={
+        <>
+          <Button onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button variant="danger" icon={Trash2} onClick={run} loading={busy} disabled={!matches}>
+            Delete Supplier
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-3.5">
+        <FormError message={error} />
+        <div className="flex gap-3.5">
+          <span className="grid size-[42px] flex-none place-items-center rounded-[12px] bg-bad-soft text-bad">
+            <AlertTriangle size={21} />
+          </span>
+          <div className="flex flex-col gap-2 text-[14px] text-ink-2">
+            <p>
+              This can’t be easily undone. <b className="text-ink">{supplier.name}</b> will disappear from every product and restock picker, and from your active suppliers list.
+            </p>
+            <p>Past purchases and restock history from this supplier are kept for your records — nothing breaks, it just won’t show up as an active supplier anymore.</p>
+          </div>
+        </div>
+        <Field label={<span>Type <b className="text-ink">{supplier.name}</b> to confirm</span>} htmlFor="del-sup-confirm">
+          <Input id="del-sup-confirm" value={confirmName} onChange={(e) => setConfirmName(e.target.value)} autoComplete="off" placeholder={supplier.name} />
+        </Field>
+      </div>
     </Modal>
   );
 }

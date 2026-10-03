@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Ban, Calendar, Check, Plus, Trash2, Wallet } from '../icons.js';
 import { Modal, ConfirmDialog } from '../ui/Modal.jsx';
 import { Button, IconButton } from '../ui/Button.jsx';
 import { Field, FormError, Input, MoneyInput, Select, Stepper, Switch, Textarea } from '../ui/Form.jsx';
+import { Combobox } from '../ui/Combobox.jsx';
 import { ProductThumb } from '../ui/Media.jsx';
 import { Skeleton } from '../ui/Feedback.jsx';
 import { PAYMENT_ICON } from '../ui/Badge.jsx';
@@ -266,25 +267,7 @@ export function VoidModal({ open, onClose, sale, onDone }) {
   );
 }
 
-function VariantOptions({ items }) {
-  const groups = useMemo(() => {
-    const map = new Map();
-    for (const i of items) {
-      if (!map.has(i.productName)) map.set(i.productName, []);
-      map.get(i.productName).push(i);
-    }
-    return [...map.entries()];
-  }, [items]);
-  return groups.map(([name, vs]) => (
-    <optgroup key={name} label={name}>
-      {vs.map((v) => (
-        <option key={v.variantId} value={v.variantId}>
-          {v.name} · {describeStock(v)}
-        </option>
-      ))}
-    </optgroup>
-  ));
-}
+const variantOptions = (items) => items.map((v) => ({ value: v.variantId, label: v.name, group: v.productName, sublabel: describeStock(v) }));
 
 /** Compact buyer search for the admin "Log a Sale" modal — find an existing customer or add one by name and phone. */
 function CustomerSearch({ value, onChange }) {
@@ -360,7 +343,9 @@ export function LogSaleModal({ open, onClose, onDone }) {
   const [loadingItems, setLoadingItems] = useState(false);
   const [date, setDate] = useState(isoDate());
   const [lines, setLines] = useState([]);
-  const [draft, setDraft] = useState({ variantId: '', unit: 'bottle', quantity: 1, price: '' });
+  const [draftVariantId, setDraftVariantId] = useState('');
+  const [draftCounts, setDraftCounts] = useState({}); // { unit: quantity string }
+  const [draftPrices, setDraftPrices] = useState({}); // { unit: price-override string }
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [amountPaid, setAmountPaid] = useState('');
   const [paidWith, setPaidWith] = useState('CASH');
@@ -372,7 +357,9 @@ export function LogSaleModal({ open, onClose, onDone }) {
     if (!open) return;
     setDate(isoDate());
     setLines([]);
-    setDraft({ variantId: '', unit: 'bottle', quantity: 1, price: '' });
+    setDraftVariantId('');
+    setDraftCounts({});
+    setDraftPrices({});
     setPaymentMethod('CASH');
     setAmountPaid('');
     setPaidWith('CASH');
@@ -394,7 +381,7 @@ export function LogSaleModal({ open, onClose, onDone }) {
         if (!live) return;
         setItems(r.items);
         const first = r.items.find((i) => i.quantity > 0) || r.items[0];
-        setDraft({ variantId: first?.variantId || '', unit: 'bottle', quantity: 1, price: '' });
+        setDraftVariantId(first?.variantId || '');
       })
       .finally(() => live && setLoadingItems(false));
     return () => {
@@ -402,21 +389,39 @@ export function LogSaleModal({ open, onClose, onDone }) {
     };
   }, [open]);
 
-  const v = items?.find((i) => i.variantId === draft.variantId);
-  const conv = v ? conversionFor(v, draft.unit) : 0;
-  const draftQty = Number(draft.quantity) || 0;
-  const draftBase = draftQty * conv;
-  const listPrice = v ? priceFor(v, draft.unit) : 0;
-  const minPrice = v ? minimumFor(v, draft.unit) : 0;
-  const draftPrice = draft.price !== '' ? Number(draft.price) : listPrice;
-  const belowMin = minPrice > 0 && draftPrice < minPrice;
-  const draftValid = Boolean(v && draftBase > 0 && draftBase <= v.quantity && draftPrice >= 0 && !belowMin);
+  const v = items?.find((i) => i.variantId === draftVariantId);
+  const draftUnits = v ? availableUnits(v) : [];
+  // One quantity + optional price-override per unit the product is sold in, so e.g. 3 cartons
+  // and 3 loose bottles of the same drink can both be entered at once instead of needing two
+  // separate "Add" actions.
+  const draftRows = draftUnits.map((u) => {
+    const quantity = Number(draftCounts[u]) || 0;
+    const listPrice = priceFor(v, u);
+    const minPrice = minimumFor(v, u);
+    const raw = draftPrices[u];
+    const price = raw !== undefined && raw !== '' ? Number(raw) : listPrice;
+    const belowMin = quantity > 0 && minPrice > 0 && price < minPrice;
+    return { unit: u, quantity, conversion: conversionFor(v, u), listPrice, minPrice, price, belowMin, priceSet: raw !== undefined && raw !== '' };
+  });
+  const draftBase = draftRows.reduce((s, r) => s + r.quantity * r.conversion, 0);
+  const draftHasRows = draftRows.some((r) => r.quantity > 0);
+  const draftHasError = draftRows.some((r) => r.quantity > 0 && (r.belowMin || r.price < 0));
+  const draftValid = Boolean(v && draftHasRows && draftBase > 0 && draftBase <= v.quantity && !draftHasError);
 
-  const onDraftVariant = (id) => setDraft({ variantId: id, unit: 'bottle', quantity: 1, price: '' });
+  const onDraftVariant = (id) => {
+    setDraftVariantId(id);
+    setDraftCounts({});
+    setDraftPrices({});
+  };
 
   const addLine = () => {
     if (!draftValid) return;
-    setLines((ls) => [...ls, { variantId: draft.variantId, unit: draft.unit, quantity: draftQty, name: v.name, unitPrice: draftPrice, lineTotal: draftPrice * draftQty, ...(draft.price !== '' ? { price: draftPrice } : {}) }]);
+    const newLines = draftRows
+      .filter((r) => r.quantity > 0)
+      .map((r) => ({ variantId: v.variantId, unit: r.unit, quantity: r.quantity, name: v.name, unitPrice: r.price, lineTotal: r.price * r.quantity, ...(r.priceSet ? { price: r.price } : {}) }));
+    setLines((ls) => [...ls, ...newLines]);
+    setDraftCounts({});
+    setDraftPrices({});
   };
   const removeLine = (i) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
@@ -480,39 +485,58 @@ export function LogSaleModal({ open, onClose, onDone }) {
           {loadingItems ? (
             <Skeleton className="h-10" />
           ) : (
-            <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.4fr)_76px_100px_104px_auto]">
+            <div className="flex flex-col gap-2.5">
               <Field label="Product" htmlFor="ls-variant">
-                <Select id="ls-variant" value={draft.variantId} onChange={(e) => onDraftVariant(e.target.value)}>
-                  <VariantOptions items={items || []} />
-                </Select>
+                <Combobox id="ls-variant" value={draftVariantId} onChange={onDraftVariant} options={variantOptions(items || [])} placeholder="Search products…" />
               </Field>
-              <Field label="Qty" htmlFor="ls-qty">
-                <input id="ls-qty" className="input" type="number" min="1" inputMode="numeric" value={draft.quantity} onChange={(e) => setDraft((d) => ({ ...d, quantity: e.target.value }))} />
-              </Field>
-              <Field label="Unit" htmlFor="ls-unit">
-                <Select id="ls-unit" value={draft.unit} onChange={(e) => setDraft((d) => ({ ...d, unit: e.target.value, price: '' }))}>
-                  {v &&
-                    availableUnits(v).map((u) => (
-                      <option key={u} value={u}>
-                        {UNIT_LABEL[u]}
-                      </option>
+              {v && (
+                <>
+                  <div className={cn('grid gap-2', draftRows.length === 1 ? 'grid-cols-1' : draftRows.length === 2 ? 'grid-cols-2' : 'grid-cols-4')}>
+                    {draftRows.map((r) => (
+                      <div key={r.unit} className={cn('rounded-[12px] border p-2.5', r.belowMin ? 'border-bad/40 bg-bad-soft' : 'border-line-2 bg-surface')}>
+                        <div className="mb-1.5 text-[11px] font-semibold text-ink-3">
+                          {UNIT_LABEL[r.unit]}
+                          {r.unit !== 'bottle' ? ` ×${r.conversion}` : ''}
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="numeric"
+                          placeholder="0"
+                          value={draftCounts[r.unit] ?? ''}
+                          onChange={(e) => setDraftCounts((c) => ({ ...c, [r.unit]: e.target.value }))}
+                          className="input mb-1.5 h-9 text-center text-[13px]"
+                          aria-label={`Quantity in ${r.unit}s`}
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="decimal"
+                          placeholder={String(r.listPrice)}
+                          value={draftPrices[r.unit] ?? ''}
+                          onChange={(e) => setDraftPrices((p) => ({ ...p, [r.unit]: e.target.value }))}
+                          className="input h-8 text-center text-[12px]"
+                          aria-label={`Price per ${r.unit}`}
+                        />
+                        {r.belowMin && <p className="mt-1 text-[10.5px] font-semibold text-bad">Min {money(r.minPrice)}</p>}
+                      </div>
                     ))}
-                </Select>
-              </Field>
-              <Field label="Price" htmlFor="ls-price" error={belowMin ? `Min ${money(minPrice)}` : undefined}>
-                <input id="ls-price" className="input" type="number" min="0" inputMode="decimal" placeholder={String(listPrice)} value={draft.price} onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))} />
-              </Field>
-              <div className="flex items-end">
-                <Button type="button" variant="primary" icon={Plus} disabled={!draftValid} onClick={addLine} className="w-full sm:w-auto">
-                  Add
-                </Button>
-              </div>
+                  </div>
+                  <Button type="button" variant="primary" icon={Plus} disabled={!draftValid} onClick={addLine} className="self-start">
+                    Add{draftHasRows ? ` · ${draftRows.filter((r) => r.quantity > 0).map((r) => plural(r.quantity, r.unit)).join(' + ')}` : ''}
+                  </Button>
+                  {/* Each unit becomes its own line in the sale (1 carton stays "1 carton", not folded into
+                      "13 bottles") — this just previews what Add is about to create, nothing is merged. */}
+                  {draftRows.filter((r) => r.quantity > 0).length > 1 && (
+                    <p className="hint -mt-1">Adds as {draftRows.filter((r) => r.quantity > 0).length} separate lines, one per unit.</p>
+                  )}
+                </>
+              )}
             </div>
           )}
           {v && (
             <p className="hint mt-2">
               Available: {describeStock(v)}
-              {draftBase > 0 && ` · ${plural(draftQty, draft.unit)} = ${plural(draftBase, 'bottle')}`}
               {draftBase > v.quantity && ' · Not enough stock'}
             </p>
           )}

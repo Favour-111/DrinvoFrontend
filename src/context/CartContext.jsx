@@ -54,6 +54,12 @@ export function CartProvider({ children }) {
     });
   }, []);
 
+  /** Adds a line with a specific unit/quantity/price already set — used to hand an on-demand
+   * purchase straight into the cart instead of the default "+1 bottle at list price" of add(). */
+  const addLine = useCallback((product, { unit = 'bottle', quantity = 1, priceOverride } = {}) => {
+    setCart((c) => ({ ...c, lines: [...c.lines, { key: `${product.variantId}-${Date.now()}`, product, unit, quantity, priceOverride }] }));
+  }, []);
+
   const update = useCallback((key, patch) => {
     setCart((c) => ({ ...c, lines: c.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) }));
   }, []);
@@ -93,6 +99,7 @@ export function CartProvider({ children }) {
       shortages,
       priceErrors,
       add,
+      addLine,
       update,
       remove,
       clear,
@@ -102,7 +109,7 @@ export function CartProvider({ children }) {
       setBackdatedAt,
       syncProducts,
     };
-  }, [cart, add, update, remove, clear, setPayment, setCustomer, setPart, setBackdatedAt, syncProducts]);
+  }, [cart, add, addLine, update, remove, clear, setPayment, setCustomer, setPart, setBackdatedAt, syncProducts]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }

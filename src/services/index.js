@@ -37,10 +37,32 @@ export const inventoryService = {
   purchases: (params) => get('/purchases', clean(params)),
 };
 
+export const onDemandPurchaseService = {
+  list: (params) => get('/on-demand-purchases', clean(params)),
+  get: (id) => get(`/on-demand-purchases/${id}`),
+  create: (body) => post('/on-demand-purchases', body),
+  markPurchased: (id, body) => post(`/on-demand-purchases/${id}/purchased`, body),
+  cancel: (id, body) => post(`/on-demand-purchases/${id}/cancel`, body),
+};
+
 export const transferService = {
   list: (params) => get('/transfers', clean(params)),
   get: (id) => get(`/transfers/${id}`),
   create: (body) => post('/transfers', body),
+};
+
+export const stockCountService = {
+  list: (params) => get('/stock-counts', clean(params)),
+  get: (id) => get(`/stock-counts/${id}`),
+  create: (body) => post('/stock-counts', body),
+  review: (id) => post(`/stock-counts/${id}/review`),
+};
+
+export const borrowingService = {
+  list: (params) => get('/borrowings', clean(params)),
+  get: (id) => get(`/borrowings/${id}`),
+  create: (body) => post('/borrowings', body),
+  return: (id, body) => post(`/borrowings/${id}/return`, body),
 };
 
 export const salesService = {
@@ -57,6 +79,8 @@ export const supplierService = {
   get: (id) => get(`/suppliers/${id}`),
   create: (body) => post('/suppliers', body),
   update: (id, body) => patch(`/suppliers/${id}`, body),
+  delete: (id, confirmName) => post(`/suppliers/${id}/delete`, { confirmName }),
+  restore: (id) => post(`/suppliers/${id}/restore`),
 };
 
 export const customerService = {

@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Printer, Share2 } from 'lucide-react';
+import { Download, MessageCircle, Printer } from 'lucide-react';
 import { Button } from './ui/Button.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 import { fmtDate, fmtTime, money, PAYMENT_LABEL } from '../utils/format.js';
+import { openWhatsApp } from '../utils/whatsapp.js';
+import { buildReceiptPdf } from '../utils/receiptPdf.js';
 
 const Row = ({ children, className = '' }) => <div className={`flex justify-between gap-2.5 ${className}`}>{children}</div>;
 
@@ -115,19 +117,20 @@ export function Receipt({ sale }) {
 }
 
 export function receiptText(sale, business) {
-  const lines = sale.items.map((i) => `${i.variantName} ${i.quantity} ${i.unit}${i.quantity > 1 ? 's' : ''} ${money(i.lineTotal)}`);
-  return [`${business?.name} receipt ${sale.receiptNumber}`, fmtDate(sale.createdAt), ...lines, `Total: ${money(sale.total)} (${PAYMENT_LABEL[sale.paymentMethod]})`].join('\n');
+  const lines = sale.items.map((i) => `${i.variantName} — ${i.quantity} ${i.unit}${i.quantity > 1 ? 's' : ''} × ${money(i.unitPrice)} = ${money(i.lineTotal)}`);
+  return [`*${business?.name}*`, `Receipt ${sale.receiptNumber}`, fmtDate(sale.createdAt), '', ...lines, '', `*Total: ${money(sale.total)}* (${PAYMENT_LABEL[sale.paymentMethod]})`].join('\n');
 }
 
-/** Print, Save as PDF (via the print dialog) and Share. */
+/** Print, download an actual PDF, and send that PDF on WhatsApp. */
 export function ReceiptActions({ sale, size = 'md', className = '' }) {
-  const { business } = useAuth();
   const toast = useToast();
   const [printing, setPrinting] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const captureRef = useRef(null);
   const print = () => setPrinting(true);
 
   // Render a standalone copy of the receipt, print it, then remove it.
-  // The page title becomes the PDF file name, e.g. "INV-000636.pdf".
   useEffect(() => {
     if (!printing) return undefined;
     const title = document.title;
@@ -144,19 +147,80 @@ export function ReceiptActions({ sale, size = 'md', className = '' }) {
       document.title = title;
     };
   }, [printing, sale.receiptNumber]);
-  const share = async () => {
-    const text = receiptText(sale, business);
+
+  // A hidden, off-screen (not display:none — html2canvas needs real layout) copy of the receipt,
+  // captured exactly as it renders — same font, same everything — then dropped straight into a PDF
+  // sized to just that content plus a paper margin, never a full blank A4 sheet.
+  const capturePdf = async () => {
+    setCapturing(true);
+    // A timer, not requestAnimationFrame — shareWhatsApp() below opens a new tab first (to avoid
+    // the popup blocker), which backgrounds this tab, and most browsers throttle or fully suspend
+    // rAF callbacks for background tabs. That would stall this wait forever; a timer still fires.
+    await new Promise((r) => setTimeout(r, 50));
     try {
-      if (navigator.share) {
-        await navigator.share({ title: `Receipt ${sale.receiptNumber}`, text });
-        return;
-      }
-      await navigator.clipboard.writeText(text);
-      toast.success('Receipt copied. Paste it into WhatsApp or SMS.');
-    } catch (err) {
-      if (err?.name !== 'AbortError') toast.error('Couldn’t share the receipt. Try printing it instead.');
+      return await buildReceiptPdf(captureRef.current, sale.receiptNumber);
+    } finally {
+      setCapturing(false);
     }
   };
+
+  const downloadPdf = async () => {
+    setBusy(true);
+    try {
+      const { pdf, filename } = await capturePdf();
+      pdf.save(filename);
+    } catch {
+      toast.error('Couldn’t build the PDF. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Shares the actual PDF file where the browser supports it (most phones). Where it doesn't —
+  // mainly desktop browsers, which can't attach files to a WhatsApp chat at all — it downloads the
+  // PDF and opens WhatsApp (pre-addressed to the customer on file, if there is one) so it can be
+  // attached by hand; there's no way to pre-attach a file via a WhatsApp link.
+  const shareWhatsApp = async () => {
+    setBusy(true);
+    // Opened synchronously, right here in the click handler, so it's never blocked as a popup —
+    // everything after this point is async (PDF capture, then possibly a multi-second wait on
+    // navigator.share), and window.open() called that late is unreliable in most browsers. This
+    // tab gets closed if native sharing takes over, or redirected to WhatsApp if we fall back to it.
+    const tab = window.open('', '_blank');
+    try {
+      const { pdf, blob, filename } = await capturePdf();
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          // navigator.share with files is known to just hang on some desktop browsers (Chrome on
+          // macOS in particular) instead of resolving or rejecting — a bare `await` here would
+          // leave the button stuck "loading" forever with no way out. Racing it against a timeout
+          // guarantees we always move on to the reliable fallback below instead of hanging.
+          await Promise.race([
+            navigator.share({ files: [file], title: `Receipt ${sale.receiptNumber}` }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('share-timeout')), 4000)),
+          ]);
+          tab?.close();
+          return;
+        } catch (err) {
+          if (err?.name === 'AbortError') {
+            tab?.close(); // user closed the native share sheet themselves
+            return;
+          }
+          // anything else — including our own timeout — falls through to the fallback below
+        }
+      }
+      pdf.save(filename);
+      toast.success('Receipt PDF downloaded — attach it to the WhatsApp chat that just opened.');
+      openWhatsApp(`Receipt ${sale.receiptNumber} — see the attached PDF.`, sale.customer?.phone, tab);
+    } catch {
+      tab?.close();
+      toast.error('Couldn’t build the PDF. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className={`grid grid-cols-3 gap-2 ${className}`}>
       {printing &&
@@ -168,14 +232,23 @@ export function ReceiptActions({ sale, size = 'md', className = '' }) {
           </div>,
           document.body
         )}
+      {capturing &&
+        createPortal(
+          <div style={{ position: 'fixed', top: 0, left: '-9999px', background: '#ffffff' }}>
+            <div ref={captureRef}>
+              <Receipt sale={sale} />
+            </div>
+          </div>,
+          document.body
+        )}
       <Button size={size} icon={Printer} onClick={print}>
         Print
       </Button>
-      <Button size={size} icon={Download} onClick={print} title="Choose “Save as PDF” in the print dialog">
+      <Button size={size} icon={Download} loading={busy} onClick={downloadPdf}>
         PDF
       </Button>
-      <Button size={size} icon={Share2} onClick={share}>
-        Share
+      <Button size={size} icon={MessageCircle} loading={busy} onClick={shareWhatsApp}>
+        WhatsApp
       </Button>
     </div>
   );

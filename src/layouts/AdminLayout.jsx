@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity, ArrowLeftRight, BarChart3, Bell, Bottle, Check, ChevronDown, ChevronRight, LayoutGrid, LogOut, Menu, Package, Plus, Receipt, Search, Settings, Store, Truck, User, Users, Wallet, X,
+  Activity, AlertTriangle, ArrowLeftRight, BarChart3, Bell, Bottle, Check, ChevronDown, ChevronRight, ClipboardList, LayoutGrid, LogOut, Menu, MessageCircle, Package, PackageSearch, Plus, Receipt, Search, Settings, Store, Truck, Undo2, User, Users, Wallet, X,
 } from '../components/icons.js';
 import { Avatar, Logo, ProductThumb } from '../components/ui/Media.jsx';
 import { IconButton } from '../components/ui/Button.jsx';
@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/Badge.jsx';
 import { ShopModal } from '../components/modals/EntityModals.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useStockUpdates } from '../hooks/useStockUpdates.js';
-import { inventoryService } from '../services/index.js';
+import { inventoryService, stockCountService } from '../services/index.js';
 import { describeStock } from '../utils/units.js';
 import { cn } from '../utils/cn.js';
 
@@ -22,11 +22,15 @@ const NAV = [
     ['/admin/products', 'Products', Bottle],
     ['/admin/inventory', 'Inventory', Package],
     ['/admin/transfers', 'Transfers', ArrowLeftRight],
+    ['/admin/stock-counts', 'Physical Counts', ClipboardList],
+    ['/admin/borrowings', 'Borrowed Drinks', Undo2],
+    ['/admin/on-demand-purchases', 'On-Demand Purchases', PackageSearch],
+    ['/admin/share-prices', 'Share Prices', MessageCircle],
   ],
   [['/admin/suppliers', 'Suppliers', Truck], ['/admin/staff', 'Staff', Users], ['/admin/reports', 'Reports', BarChart3], ['/admin/activity', 'Activity', Activity], ['/admin/settings', 'Settings', Settings]],
 ];
 const TITLES = {
-  dashboard: 'Dashboard', products: 'Products', inventory: 'Inventory', transfers: 'Stock Transfers', suppliers: 'Suppliers', sales: 'Sales', customers: 'Customers',
+  dashboard: 'Dashboard', products: 'Products', inventory: 'Inventory', transfers: 'Stock Transfers', 'stock-counts': 'Physical Stock Counts', borrowings: 'Borrowed Drinks', 'on-demand-purchases': 'On-Demand Purchases', 'share-prices': 'Share Prices', suppliers: 'Suppliers', sales: 'Sales', customers: 'Customers',
   staff: 'Staff', reports: 'Reports & Analytics', activity: 'Activity', settings: 'Settings', profile: 'Profile',
 };
 
@@ -60,6 +64,7 @@ export default function AdminLayout() {
   const { user, shop, shops, switchShop, refresh, logout } = useAuth();
   const [drawer, setDrawer] = useState(false);
   const [alerts, setAlerts] = useState([]);
+  const [countAlerts, setCountAlerts] = useState([]);
   const [addingShop, setAddingShop] = useState(false);
   const pop = usePopover();
   const location = useLocation();
@@ -67,13 +72,18 @@ export default function AdminLayout() {
   const section = location.pathname.split('/')[2];
 
   useEffect(() => setDrawer(false), [location.pathname]);
-  // Stock alerts for the bell: once per shop, then every 2 minutes (not on every page change)
+  // Stock alerts and unreviewed physical-count differences for the bell: once per shop, then every 2 minutes
   useEffect(() => {
-    const load = () =>
+    const load = () => {
       inventoryService
         .list()
         .then((r) => setAlerts(r.items.filter((i) => i.status === 'low' || i.status === 'out')))
         .catch(() => {});
+      stockCountService
+        .list({ status: 'SUBMITTED', hasDifference: true, limit: 10 })
+        .then((r) => setCountAlerts(r.items))
+        .catch(() => {});
+    };
     load();
     const t = setInterval(load, 120_000);
     return () => clearInterval(t);
@@ -127,6 +137,9 @@ export default function AdminLayout() {
                 <span className="flex-1">{label}</span>
                 {to.endsWith('inventory') && alerts.length > 0 && (
                   <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'inventory' ? 'bg-brand/15 text-brand-ink' : 'bg-warn-soft text-warn')}>{alerts.length}</em>
+                )}
+                {to.endsWith('stock-counts') && countAlerts.length > 0 && (
+                  <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'stock-counts' ? 'bg-brand/15 text-brand-ink' : 'bg-bad-soft text-bad')}>{countAlerts.length}</em>
                 )}
               </NavLink>
             ))}
@@ -203,11 +216,32 @@ export default function AdminLayout() {
           </div>
 
           <div className="relative">
-            <IconButton icon={Bell} label="Stock alerts" size={38} onClick={() => pop.toggle('alerts')}>
-              {alerts.length > 0 && <i className="absolute top-1.5 right-2 size-2 rounded-full border-2 border-surface-solid bg-bad" />}
+            <IconButton icon={Bell} label="Alerts" size={38} onClick={() => pop.toggle('alerts')}>
+              {(alerts.length > 0 || countAlerts.length > 0) && <i className="absolute top-1.5 right-2 size-2 rounded-full border-2 border-surface-solid bg-bad" />}
             </IconButton>
             {pop.open === 'alerts' && (
               <Pop width="w-[300px]" className="max-h-[70vh] overflow-auto">
+                {countAlerts.length > 0 && (
+                  <>
+                    <div className="px-2.5 pt-2 pb-1.5 text-[12px] font-medium text-ink-3">Physical count differences</div>
+                    {countAlerts.map((c) => (
+                      <PopItem key={c.id} as={Link} to={`/admin/stock-counts/${c.id}`} onClick={() => pop.setOpen(null)}>
+                        <span className="grid size-[30px] flex-none place-items-center rounded-[9px] bg-bad-soft text-bad">
+                          <AlertTriangle size={15} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          {c.countNumber}
+                          <small className="block text-[12px] text-ink-3">
+                            {c.summary.SHORTAGE > 0 && `${c.summary.SHORTAGE} short`}
+                            {c.summary.SHORTAGE > 0 && c.summary.OVERAGE > 0 && ' · '}
+                            {c.summary.OVERAGE > 0 && `${c.summary.OVERAGE} over`}
+                          </small>
+                        </span>
+                      </PopItem>
+                    ))}
+                    <div className="mx-1 my-1.5 h-px bg-line-2" />
+                  </>
+                )}
                 <div className="px-2.5 pt-2 pb-1.5 text-[12px] font-medium text-ink-3">Stock alerts</div>
                 {alerts.length === 0 && <p className="px-2.5 pb-2 text-[13px] text-ink-3">All stock levels are healthy.</p>}
                 {alerts.map((a) => (

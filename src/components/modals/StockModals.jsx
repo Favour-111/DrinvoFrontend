@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeftRight, ArrowRight, Check, Plus, SlidersHorizontal, Trash2 } from '../icons.js';
 import { Modal, ConfirmDialog } from '../ui/Modal.jsx';
 import { Button, IconButton } from '../ui/Button.jsx';
 import { Field, FormError, MoneyInput, Select, Textarea } from '../ui/Form.jsx';
+import { Combobox } from '../ui/Combobox.jsx';
 import { Skeleton } from '../ui/Feedback.jsx';
 import { inventoryService, supplierService, transferService } from '../../services/index.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -11,25 +12,8 @@ import { money, plural } from '../../utils/format.js';
 import { availableUnits, bigUnit, conversionFor, describeStock, UNIT_LABEL } from '../../utils/units.js';
 import { cn } from '../../utils/cn.js';
 
-function VariantOptions({ items }) {
-  const groups = useMemo(() => {
-    const map = new Map();
-    for (const i of items) {
-      if (!map.has(i.productName)) map.set(i.productName, []);
-      map.get(i.productName).push(i);
-    }
-    return [...map.entries()];
-  }, [items]);
-  return groups.map(([name, vs]) => (
-    <optgroup key={name} label={name}>
-      {vs.map((v) => (
-        <option key={v.variantId} value={v.variantId}>
-          {v.name} · {describeStock(v)}
-        </option>
-      ))}
-    </optgroup>
-  ));
-}
+const variantOptions = (items) => items.map((v) => ({ value: v.variantId, label: v.name, group: v.productName, sublabel: describeStock(v) }));
+const supplierOptions = (suppliers) => suppliers.map((s) => ({ value: s.id, label: s.name }));
 
 function FromTo({ before, after, variant, afterLabel }) {
   return (
@@ -154,22 +138,14 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
         <div className="flex flex-col gap-3.5">
           <FormError message={serverError} />
           <Field label="Supplier" htmlFor="rs-supplier">
-            <Select id="rs-supplier" value={supplier} onChange={(e) => setSupplier(e.target.value)}>
-              {data.suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
+            <Combobox id="rs-supplier" value={supplier} onChange={setSupplier} options={supplierOptions(data.suppliers)} placeholder="Search suppliers…" />
           </Field>
 
           <div className="rounded-[16px] border border-line-2 bg-surface-2 p-3.5">
             <div className="label mb-2">Add to this restock</div>
             <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.6fr)_84px_112px_120px_auto]">
               <Field label="Product" htmlFor="rs-variant">
-                <Select id="rs-variant" value={draft.variantId} onChange={(e) => onDraftVariant(e.target.value)}>
-                  <VariantOptions items={data.items} />
-                </Select>
+                <Combobox id="rs-variant" value={draft.variantId} onChange={onDraftVariant} options={variantOptions(data.items)} placeholder="Search products…" />
               </Field>
               <Field label="Qty" htmlFor="rs-qty">
                 <input
@@ -262,7 +238,9 @@ const ADJ_TYPES = [
   ['OTHER', 'Other', 0],
 ];
 
-export function AdjustModal({ open, onClose, onDone, variantId }) {
+/** `initialQuantity`/`initialDirection`/`initialNotes` let a caller (e.g. resolving a physical
+ * count difference) open this pre-filled as a CORRECTION instead of the DAMAGED default. */
+export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity, initialDirection, initialNotes }) {
   const data = useStockData(open, false);
   const toast = useToast();
   const [form, setForm] = useState({ variantId: '', type: 'DAMAGED', direction: 'remove', quantity: 1, unit: 'bottle', notes: '' });
@@ -272,8 +250,17 @@ export function AdjustModal({ open, onClose, onDone, variantId }) {
   useEffect(() => {
     if (!open || !data?.items.length) return;
     const first = data.items.find((i) => i.variantId === variantId) || data.items.find((i) => i.quantity > 0) || data.items[0];
-    setForm({ variantId: first.variantId, type: 'DAMAGED', direction: 'remove', quantity: 1, unit: 'bottle', notes: '' });
+    const prefilled = initialQuantity > 0;
+    setForm({
+      variantId: first.variantId,
+      type: prefilled ? 'CORRECTION' : 'DAMAGED',
+      direction: prefilled ? initialDirection : 'remove',
+      quantity: prefilled ? initialQuantity : 1,
+      unit: 'bottle',
+      notes: initialNotes || '',
+    });
     setServerError('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, data, variantId]);
 
   const v = data?.items.find((i) => i.variantId === form.variantId);
@@ -321,9 +308,7 @@ export function AdjustModal({ open, onClose, onDone, variantId }) {
           <>
             <FormError message={serverError} />
             <Field label="Product" htmlFor="adj-variant">
-              <Select id="adj-variant" value={form.variantId} onChange={(e) => set({ variantId: e.target.value, unit: 'bottle' })}>
-                <VariantOptions items={data.items} />
-              </Select>
+              <Combobox id="adj-variant" value={form.variantId} onChange={(variantId) => set({ variantId, unit: 'bottle' })} options={variantOptions(data.items)} placeholder="Search products…" />
             </Field>
             <div>
               <div className="label mb-2">Reason</div>
@@ -543,9 +528,7 @@ export function TransferModal({ open, onClose, onDone }) {
             ) : (
               <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.6fr)_84px_112px_auto]">
                 <Field label="Product" htmlFor="tr-variant">
-                  <Select id="tr-variant" value={draft.variantId} onChange={(e) => onDraftVariant(e.target.value)}>
-                    <VariantOptions items={sourceItems || []} />
-                  </Select>
+                  <Combobox id="tr-variant" value={draft.variantId} onChange={onDraftVariant} options={variantOptions(sourceItems || [])} placeholder="Search products…" />
                 </Field>
                 <Field label="Qty" htmlFor="tr-qty">
                   <input

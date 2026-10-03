@@ -1,24 +1,38 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, Mail, MapPin, Pencil, Phone, Truck, User } from '../../components/icons.js';
+import { ChevronRight, Mail, MapPin, Pencil, Phone, RotateCcw, Trash2, Truck, User } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader, MiniStat } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
+import { Badge } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
-import { SupplierModal } from '../../components/modals/EntityModals.jsx';
+import { SupplierModal, DeleteSupplierModal } from '../../components/modals/EntityModals.jsx';
 import { RestockModal } from '../../components/modals/StockModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
+import { useToast } from '../../context/ToastContext.jsx';
 import { supplierService } from '../../services/index.js';
 import { fmtDate, initials, money, plural } from '../../utils/format.js';
 
 export default function SupplierDetail() {
   const { id } = useParams();
+  const toast = useToast();
   const [modal, setModal] = useState(null);
   const { data, error, reload } = useApi(() => supplierService.get(id), [id]);
   if (error && !data) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <PageSkeleton chart={false} />;
   const { supplier, stats, products, purchases } = data;
+  const archived = supplier.status === 'ARCHIVED';
+
+  const restore = async () => {
+    try {
+      await supplierService.restore(id);
+      toast.success('Supplier restored.');
+      reload();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
 
   return (
     <Page>
@@ -26,19 +40,31 @@ export default function SupplierDetail() {
         crumbs={[['Suppliers', '/admin/suppliers'], [supplier.name]]}
         subtitle={`Supplier since ${fmtDate(supplier.createdAt)}`}
         actions={
-          <>
-            <Button icon={Pencil} onClick={() => setModal('edit')}>
-              Edit
+          archived ? (
+            <Button icon={RotateCcw} onClick={restore}>
+              Restore supplier
             </Button>
-            <Button variant="primary" icon={Truck} onClick={() => setModal('restock')}>
-              Restock from supplier
-            </Button>
-          </>
+          ) : (
+            <>
+              <Button icon={Pencil} onClick={() => setModal('edit')}>
+                Edit
+              </Button>
+              <Button variant="danger-soft" icon={Trash2} onClick={() => setModal('delete')}>
+                Delete
+              </Button>
+              <Button variant="primary" icon={Truck} onClick={() => setModal('restock')}>
+                Restock from supplier
+              </Button>
+            </>
+          )
         }
       >
         <div className="flex items-center gap-4">
           <span className="grid size-14 place-items-center rounded-[13px] bg-surface-3 text-[18px] font-bold">{initials(supplier.name)}</span>
-          <h1 className="text-[22px] font-bold sm:text-[24px]">{supplier.name}</h1>
+          <h1 className="flex items-center gap-2.5 text-[22px] font-bold sm:text-[24px]">
+            {supplier.name}
+            {archived && <Badge tone="bad">Deleted</Badge>}
+          </h1>
         </div>
       </PageHeader>
 
@@ -140,6 +166,7 @@ export default function SupplierDetail() {
 
       <SupplierModal open={modal === 'edit'} onClose={() => setModal(null)} supplier={supplier} onDone={reload} />
       <RestockModal open={modal === 'restock'} onClose={() => setModal(null)} supplierId={id} onDone={reload} />
+      <DeleteSupplierModal open={modal === 'delete'} onClose={() => setModal(null)} supplier={supplier} onDone={reload} />
     </Page>
   );
 }

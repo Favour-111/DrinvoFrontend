@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Archive, Bottle, Eye, Pencil, Plus, RotateCcw, Search } from '../../components/icons.js';
+import { Archive, Bottle, Eye, MessageCircle, Pencil, Plus, RotateCcw, Search } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { ButtonLink, Button, IconButton } from '../../components/ui/Button.jsx';
@@ -63,9 +63,14 @@ export default function Products() {
         title="Products"
         subtitle={`${plural(products, 'product')} · ${plural(data.items.length, 'size')}${filtered ? ' shown' : ''}`}
         actions={
-          <ButtonLink to="/admin/products/new" variant="primary" icon={Plus}>
-            Add Product
-          </ButtonLink>
+          <>
+            <ButtonLink to="/admin/share-prices" icon={MessageCircle}>
+              Share Prices
+            </ButtonLink>
+            <ButtonLink to="/admin/products/new" variant="primary" icon={Plus}>
+              Add Product
+            </ButtonLink>
+          </>
         }
       />
       <div className="flex flex-wrap items-center gap-2.5">

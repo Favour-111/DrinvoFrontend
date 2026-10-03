@@ -8,6 +8,7 @@ import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Field, FormField, Input, MoneyInput, Select, Switch } from '../../components/ui/Form.jsx';
+import { Combobox } from '../../components/ui/Combobox.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { useApi } from '../../hooks/useApi.js';
@@ -437,19 +438,24 @@ export default function ProductForm() {
                 <FormField label="Brand" name="brand" register={form.register} errors={form.formState.errors} placeholder="e.g. Nigerian Bottling Company" />
               </div>
               <div className="grid gap-3.5 sm:grid-cols-2">
-                <FormField label="Category" name="category" as="select" register={form.register} errors={form.formState.errors}>
-                  {(categories.data || ['Soft Drink']).map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </FormField>
-                <FormField label="Main supplier" name="supplierId" as="select" register={form.register} errors={form.formState.errors}>
-                  <option value="">None</option>
-                  {(suppliers.data || []).map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </FormField>
+                <Field label="Category" htmlFor="pf-category" error={form.formState.errors.category?.message}>
+                  <Combobox
+                    id="pf-category"
+                    value={values.category}
+                    onChange={(v) => form.setValue('category', v, { shouldValidate: true })}
+                    options={(categories.data || ['Soft Drink']).map((c) => ({ value: c, label: c }))}
+                    placeholder="Search categories…"
+                  />
+                </Field>
+                <Field label="Main supplier" htmlFor="pf-supplier">
+                  <Combobox
+                    id="pf-supplier"
+                    value={values.supplierId}
+                    onChange={(v) => form.setValue('supplierId', v, { shouldValidate: true })}
+                    options={[{ value: '', label: 'None' }, ...(suppliers.data || []).map((s) => ({ value: s.id, label: s.name }))]}
+                    placeholder="Search suppliers…"
+                  />
+                </Field>
               </div>
               <FormField label="Description" name="description" as="textarea" register={form.register} errors={form.formState.errors} placeholder="Optional notes, e.g. returnable bottle" />
               <Field label="Image">

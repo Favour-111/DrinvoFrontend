@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Check, LayoutGrid, Lock, MapPin, Pencil, Plus, Power, Receipt, Store, Trash2, X } from '../../components/icons.js';
+import { Check, LayoutGrid, Lock, MapPin, MessageCircle, Pencil, Plus, Power, Receipt, Store, Trash2, X } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader } from '../../components/ui/Card.jsx';
 import { Button, IconButton } from '../../components/ui/Button.jsx';
@@ -240,6 +240,7 @@ const schema = z.object({
   receiptFooter: z.string().trim().max(200),
   showStaffOnReceipt: z.boolean(),
   showDiscountOnReceipt: z.boolean(),
+  whatsappNumber: z.string().trim().max(30),
   shopName: z.string().trim().min(2, 'Enter a shop name'),
   shopAddress: z.string().trim().max(240),
   shopPhone: z.string().trim().max(40),
@@ -292,6 +293,7 @@ export default function Settings() {
       receiptFooter: b.receiptFooter,
       showStaffOnReceipt: b.showStaffOnReceipt,
       showDiscountOnReceipt: b.showDiscountOnReceipt ?? true,
+      whatsappNumber: b.whatsappNumber || '',
       shopName: s.name,
       shopAddress: s.address,
       shopPhone: s.phone,
@@ -306,6 +308,7 @@ export default function Settings() {
         receiptFooter: v.receiptFooter,
         showStaffOnReceipt: v.showStaffOnReceipt,
         showDiscountOnReceipt: v.showDiscountOnReceipt,
+        whatsappNumber: v.whatsappNumber,
       });
       await settingsService.updateShop(shop.id, { name: v.shopName, address: v.shopAddress, phone: v.shopPhone });
       updateBusiness(b);
@@ -352,6 +355,17 @@ export default function Settings() {
               <Switch checked={Boolean(form.watch('showDiscountOnReceipt'))} onChange={(v) => form.setValue('showDiscountOnReceipt', v, { shouldDirty: true })} label="Show discounts on customer receipts" />
             </label>
           </div>
+        </Section>
+        <Section icon={MessageCircle} title="Customer Communication" text="Used by the WhatsApp price-share feature on sales pages.">
+          <FormField
+            label="Shop's WhatsApp number"
+            name="whatsappNumber"
+            type="tel"
+            register={reg}
+            errors={e}
+            placeholder="e.g. 2348012345678"
+            hint="There's no WhatsApp API connected — sharing a price list opens WhatsApp with the message ready to send. Use the device that's signed in with this number (not a staff member's personal WhatsApp) so prices go out from the shop's own account."
+          />
         </Section>
         <Section icon={MapPin} title="Shops" text="Every record is stored against a shop, so more branches can be added later.">
           {shops.map((s) => (

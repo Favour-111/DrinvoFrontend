@@ -22,6 +22,9 @@ import MySales from './pages/staff/MySales.jsx';
 import MySale from './pages/staff/MySale.jsx';
 import StaffInventory from './pages/staff/StaffInventory.jsx';
 import StaffCustomers from './pages/staff/Customers.jsx';
+import StockCount from './pages/staff/StockCount.jsx';
+import SharePrices from './pages/staff/SharePrices.jsx';
+import OnDemandPurchases from './pages/staff/OnDemandPurchases.jsx';
 
 // Admin pages
 const Dashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
@@ -31,6 +34,13 @@ const ProductDetail = lazy(() => import('./pages/admin/ProductDetail.jsx'));
 const Inventory = lazy(() => import('./pages/admin/Inventory.jsx'));
 const InventoryDetail = lazy(() => import('./pages/admin/InventoryDetail.jsx'));
 const Transfers = lazy(() => import('./pages/admin/Transfers.jsx'));
+const StockCounts = lazy(() => import('./pages/admin/StockCounts.jsx'));
+const StockCountDetail = lazy(() => import('./pages/admin/StockCountDetail.jsx'));
+const AdminStockCount = lazy(() => import('./pages/staff/StockCount.jsx'));
+const AdminSharePrices = lazy(() => import('./pages/staff/SharePrices.jsx'));
+const Borrowings = lazy(() => import('./pages/admin/Borrowings.jsx'));
+const BorrowingDetail = lazy(() => import('./pages/admin/BorrowingDetail.jsx'));
+const AdminOnDemandPurchases = lazy(() => import('./pages/staff/OnDemandPurchases.jsx'));
 const Sales = lazy(() => import('./pages/admin/Sales.jsx'));
 const SaleDetail = lazy(() => import('./pages/admin/SaleDetail.jsx'));
 const Suppliers = lazy(() => import('./pages/admin/Suppliers.jsx'));
@@ -67,6 +77,13 @@ export default function App() {
                   <Route path="inventory" element={page(<Inventory />)} />
                   <Route path="inventory/:id" element={page(<InventoryDetail />)} />
                   <Route path="transfers" element={page(<Transfers />)} />
+                  <Route path="stock-counts" element={page(<StockCounts />)} />
+                  <Route path="stock-counts/new" element={page(<AdminStockCount />)} />
+                  <Route path="share-prices" element={page(<AdminSharePrices />)} />
+                  <Route path="stock-counts/:id" element={page(<StockCountDetail />)} />
+                  <Route path="borrowings" element={page(<Borrowings />)} />
+                  <Route path="borrowings/:id" element={page(<BorrowingDetail />)} />
+                  <Route path="on-demand-purchases" element={page(<AdminOnDemandPurchases />)} />
                   <Route path="sales" element={page(<Sales />)} />
                   <Route path="sales/:id" element={page(<SaleDetail />)} />
                   <Route path="suppliers" element={page(<Suppliers />)} />
@@ -92,6 +109,9 @@ export default function App() {
                   <Route path="sales" element={<MySales />} />
                   <Route path="sales/:id" element={<MySale />} />
                   <Route path="inventory" element={<StaffInventory />} />
+                  <Route path="count" element={<StockCount />} />
+                  <Route path="share-prices" element={<SharePrices />} />
+                  <Route path="on-demand-purchases" element={<OnDemandPurchases />} />
                   <Route path="customers" element={<StaffCustomers />} />
                   <Route path="profile" element={<Profile staff />} />
                   <Route path="*" element={<NotFound />} />

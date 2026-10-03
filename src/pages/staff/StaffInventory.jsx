@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeftRight, Search } from '../../components/icons.js';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeftRight, ClipboardList, MessageCircle, PackageSearch, Search, Undo2 } from '../../components/icons.js';
 import { Page, Tabs } from '../../components/ui/Nav.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -7,6 +8,7 @@ import { StockBadge } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { TransferModal } from '../../components/modals/StockModals.jsx';
+import { BorrowModal } from '../../components/modals/BorrowModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { inventoryService } from '../../services/index.js';
@@ -17,9 +19,11 @@ import { describeStock } from '../../utils/units.js';
  * staff can record a transfer to move stock between shops. */
 export default function StaffInventory() {
   const { shops } = useAuth();
+  const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
   const [transferring, setTransferring] = useState(false);
+  const [borrowing, setBorrowing] = useState(false);
   const { data, error, reload } = useApi(() => inventoryService.list(), []);
   const items = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -36,11 +40,25 @@ export default function StaffInventory() {
           <h1 className="text-[22px] font-bold">Inventory</h1>
           <p className="mt-1 text-[13.5px] text-ink-3">What’s available to sell right now.</p>
         </div>
-        {shops.length > 1 && (
-          <Button icon={ArrowLeftRight} onClick={() => setTransferring(true)}>
-            Transfer Stock
+        <div className="flex flex-wrap gap-2">
+          <Button icon={MessageCircle} onClick={() => navigate('/staff/share-prices')}>
+            Share Prices
           </Button>
-        )}
+          <Button icon={ClipboardList} onClick={() => navigate('/staff/count')}>
+            Physical Count
+          </Button>
+          <Button icon={Undo2} onClick={() => setBorrowing(true)}>
+            Borrow / Lend
+          </Button>
+          <Button icon={PackageSearch} onClick={() => navigate('/staff/on-demand-purchases')}>
+            On-Demand Purchase
+          </Button>
+          {shops.length > 1 && (
+            <Button icon={ArrowLeftRight} onClick={() => setTransferring(true)}>
+              Transfer Stock
+            </Button>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
         <label className="relative w-full sm:max-w-[360px] sm:flex-1">
@@ -81,6 +99,7 @@ export default function StaffInventory() {
         )}
       </Card>
       <TransferModal open={transferring} onClose={() => setTransferring(false)} onDone={reload} />
+      <BorrowModal open={borrowing} onClose={() => setBorrowing(false)} onDone={reload} />
     </Page>
   );
 }

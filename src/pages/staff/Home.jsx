@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, BarChart3, Calendar, MoreHorizontal, Plus, ShoppingCart } from '../../components/icons.js';
+import { ArrowRight, BarChart3, Calendar, MessageCircle, MoreHorizontal, Plus, ShoppingCart } from '../../components/icons.js';
 import { Page } from '../../components/ui/Nav.jsx';
 import { CardLink } from '../../components/ui/Card.jsx';
 import { PageSkeleton } from '../../components/ui/Feedback.jsx';
@@ -163,6 +163,25 @@ export default function StaffHome() {
         </span>
         <Blobs />
         <span className="relative z-10 grid size-11 flex-none place-items-center rounded-full bg-white text-brand shadow-sm">
+          <ArrowRight size={20} />
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => navigate('/staff/share-prices')}
+        className="relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-[16px] bg-ok px-[22px] py-5 text-left text-white transition-colors hover:brightness-95 active:scale-[0.99]"
+      >
+        <span className="relative z-10 flex items-center gap-4">
+          <span className="grid size-[52px] flex-none place-items-center rounded-[14px] bg-white/15">
+            <MessageCircle size={26} />
+          </span>
+          <span>
+            <b className="block text-[19px]">Share Prices</b>
+            <small className="text-[13px] opacity-80">Send carton and bottle prices on WhatsApp.</small>
+          </span>
+        </span>
+        <span className="relative z-10 grid size-11 flex-none place-items-center rounded-full bg-white text-ok shadow-sm">
           <ArrowRight size={20} />
         </span>
       </button>
