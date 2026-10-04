@@ -4,6 +4,7 @@ import {
   Activity, AlertTriangle, ArrowLeftRight, BarChart3, Bell, Bottle, Check, ChevronDown, ChevronRight, ClipboardList, LayoutGrid, LogOut, Menu, MessageCircle, Package, PackageSearch, Plus, Receipt, Search, Settings, Store, Truck, Undo2, User, Users, Wallet, X,
 } from '../components/icons.js';
 import { Avatar, Logo, ProductThumb } from '../components/ui/Media.jsx';
+import { PoweredBy } from '../components/PoweredBy.jsx';
 import { IconButton } from '../components/ui/Button.jsx';
 import { Badge } from '../components/ui/Badge.jsx';
 import { ShopModal } from '../components/modals/EntityModals.jsx';
@@ -154,6 +155,7 @@ export default function AdminLayout() {
             </span>
             <ChevronRight size={16} className="text-ink-3" />
           </Link>
+          <PoweredBy className="mt-3" />
         </div>
       </aside>
       {drawer && <div className="animate-fade fixed inset-0 z-30 bg-scrim lg:hidden" onClick={() => setDrawer(false)} />}

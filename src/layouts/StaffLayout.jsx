@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Home, LogOut, Package, Plus, Receipt, Store, User, Wallet } from '../components/icons.js';
 import { Avatar, Logo } from '../components/ui/Media.jsx';
 import { SyncIndicator } from '../components/SyncIndicator.jsx';
+import { PoweredBy } from '../components/PoweredBy.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useCart } from '../context/CartContext.jsx';
 import { cn } from '../utils/cn.js';
@@ -91,6 +92,7 @@ export default function StaffLayout() {
 
       <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pt-4 pb-[calc(92px+env(safe-area-inset-bottom))] md:pt-6 md:pb-12 lg:px-6">
         <Outlet />
+        <PoweredBy className="mt-8 mb-2" />
       </main>
 
       {/* Bottom tab bar */}
