@@ -2,27 +2,33 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from './Button.jsx';
 import { cn } from '../../utils/cn.js';
 
+/** Friendly empty state: a soft gradient medallion with decorative blobs, a clear title and an optional next step. */
 export function EmptyState({ icon: Icon, title, text, action, className }) {
   return (
-    <div className={cn('flex flex-col items-center gap-2 px-5 py-11 text-center', className)}>
-      <div className="mb-3.5 grid size-[64px] place-items-center rounded-full bg-brand-soft text-brand">{Icon && <Icon size={26} />}</div>
-      <h3 className="text-[16px] font-semibold">{title}</h3>
-      {text && <p className="mb-2 max-w-[340px] text-[13.5px] text-ink-3">{text}</p>}
-      {action}
+    <div className={cn('relative flex flex-col items-center gap-2 overflow-hidden px-5 py-12 text-center', className)}>
+      <span className="blob -top-10 -left-6 size-28 opacity-70" aria-hidden="true" />
+      <span className="blob -right-8 bottom-0 size-24 opacity-50" aria-hidden="true" />
+      <div className="relative mb-3 grid size-[68px] place-items-center rounded-[22px] bg-linear-to-br from-brand-soft to-surface-2 text-brand shadow-[inset_0_0_0_1px_var(--line),0_10px_24px_-14px_var(--brand-2)]">
+        {Icon && <Icon size={28} strokeWidth={1.8} />}
+      </div>
+      <h3 className="relative text-[16px] font-semibold">{title}</h3>
+      {text && <p className="relative mb-2 max-w-[360px] text-[13.5px] leading-relaxed text-ink-3">{text}</p>}
+      {action && <div className="relative mt-1">{action}</div>}
     </div>
   );
 }
 
 export function ErrorState({ error, onRetry }) {
   return (
-    <div className="card flex flex-col items-center gap-2 px-5 py-10 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-bad-soft text-bad">
-        <AlertTriangle size={22} />
+    <div className="card relative flex flex-col items-center gap-2 overflow-hidden px-5 py-12 text-center">
+      <span className="blob -top-10 -right-6 size-28 bg-bad opacity-[0.08]" aria-hidden="true" />
+      <span className="tile tile-bad relative mb-2 size-14 rounded-[18px]">
+        <AlertTriangle size={24} />
       </span>
-      <h3 className="text-[16px] font-semibold">This page couldn’t load</h3>
-      <p className="max-w-sm text-[13.5px] text-ink-3">{error?.message || 'Something went wrong.'}</p>
+      <h3 className="relative text-[16px] font-semibold">This page couldn’t load</h3>
+      <p className="relative max-w-sm text-[13.5px] text-ink-3">{error?.message || 'Something went wrong.'}</p>
       {onRetry && (
-        <Button className="mt-2" onClick={onRetry}>
+        <Button className="relative mt-3" onClick={onRetry}>
           Try again
         </Button>
       )}

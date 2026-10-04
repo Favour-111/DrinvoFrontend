@@ -104,7 +104,7 @@ export default function SaleComplete() {
       <ButtonLink to="/staff/sale" variant="primary" size="lg" icon={Plus}>
         Start new sale
       </ButtonLink>
-      <Modal open={showReceipt} onClose={() => setShowReceipt(false)} title="Receipt" size="sm">
+      <Modal open={showReceipt} onClose={() => setShowReceipt(false)} title="Receipt" icon={ReceiptIcon} tone="brand" size="sm">
         <div className="pb-3">
           <Receipt sale={s} />
         </div>

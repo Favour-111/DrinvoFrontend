@@ -4,8 +4,8 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
 
 const VARIANTS = {
-  primary: 'border-brand bg-brand text-on-brand hover:bg-brand-2 hover:border-brand-2 active:bg-brand',
-  secondary: 'border-line bg-surface text-ink hover:bg-surface-2 hover:border-ink-3/30',
+  primary: 'border-brand bg-brand text-on-brand shadow-[0_6px_16px_-8px_var(--brand-2)] hover:bg-brand-2 hover:border-brand-2 hover:shadow-[0_10px_22px_-10px_var(--brand-2)] active:scale-[0.98] active:bg-brand',
+  secondary: 'border-line bg-surface text-ink shadow-[0_1px_2px_rgba(16,24,32,0.04)] hover:bg-surface-2 hover:border-ink-3/30 active:scale-[0.98]',
   ghost: 'border-transparent bg-transparent text-ink hover:bg-surface-2',
   danger: 'border-bad bg-bad text-white hover:brightness-95',
   'danger-soft': 'border-line bg-surface text-bad hover:bg-bad-soft hover:border-bad/25',

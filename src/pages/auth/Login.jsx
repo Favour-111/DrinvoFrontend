@@ -3,10 +3,10 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertTriangle, Receipt, TrendingUp } from '../../components/icons.js';
-import { Logo } from '../../components/ui/Media.jsx';
+import { ArrowRight, KeyRound, Lock, Mail } from '../../components/icons.js';
+import { FormError } from '../../components/ui/Form.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { FormError, FormField } from '../../components/ui/Form.jsx';
+import { AuthCard, AuthField, AuthLayout, AUTH_FEATURES } from '../../components/auth/AuthLayout.jsx';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { homeFor } from '../../routes/guards.jsx';
 
@@ -15,12 +15,15 @@ const schema = z.object({
   password: z.string().min(1, 'Enter your password'),
 });
 
+const DEMO = { email: 'admin@drinvo.test', password: 'Password123!' };
+
 export default function Login() {
   const { login, notice } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState('');
-  const { register, handleSubmit, formState } = useForm({ resolver: zodResolver(schema) });
+  const [showPassword, setShowPassword] = useState(false);
+  const { register, handleSubmit, formState, setValue } = useForm({ resolver: zodResolver(schema) });
 
   const submit = handleSubmit(async ({ email, password }) => {
     setError('');
@@ -35,63 +38,101 @@ export default function Login() {
   });
 
   return (
-    <div className="grid min-h-dvh bg-bg lg:grid-cols-[1.05fr_1fr]">
-      {/* Hero */}
-      <div className="flex flex-col justify-between gap-8 bg-hero px-5 py-7 text-[#eaf7f0] lg:px-12 lg:py-10">
-        <Logo light />
-        <div>
-          <h1 className="max-w-[470px] text-[32px] leading-[1.1] font-extrabold tracking-[-0.03em] lg:text-[42px]">
+    <AuthLayout
+      hero={{
+        eyebrow: 'All-in-one drink business solution',
+        title: (
+          <>
             Manage stock.
             <br />
             Track sales.
-            <br />
-            <span className="text-brand-3">Know your profit.</span>
-          </h1>
-          <p className="mt-3.5 max-w-[420px] text-[#9fc2b1]">Inventory and sales for drink businesses, counted in bottles, packs, cartons and crates.</p>
+          </>
+        ),
+        highlight: 'Know your profit.',
+        text: 'Inventory and sales for drink businesses, counted in bottles, packs, cartons and crates.',
+        features: AUTH_FEATURES,
+        footer: (
+          <>
+            <span className="flex -space-x-2">
+              {['AO', 'TB', 'BE'].map((i) => (
+                <span key={i} className="grid size-8 place-items-center rounded-full border-2 border-hero bg-brand-soft text-[10.5px] font-bold text-brand-ink">
+                  {i}
+                </span>
+              ))}
+              <span className="grid h-8 place-items-center rounded-full border-2 border-hero bg-brand-3 px-2.5 text-[11px] font-bold text-hero">1K+</span>
+            </span>
+            <span>
+              Trusted by drink shop owners
+              <br />
+              and retailers.
+            </span>
+          </>
+        ),
+      }}
+    >
+      <AuthCard>
+        <div className="flex flex-col items-center text-center">
+          <span className="grid size-16 place-items-center rounded-[20px] bg-linear-to-br from-brand-2 to-brand shadow-[0_14px_30px_-12px_rgba(16,185,129,0.8)]">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M9.5 2.5h5v3l2 3.2c.3.5.5 1.1.5 1.7V19a2.5 2.5 0 0 1-2.5 2.5h-5A2.5 2.5 0 0 1 7 19v-8.6c0-.6.2-1.2.5-1.7l2-3.2z" fill="#fff" />
+              <path d="M7 13.5h10" stroke="#047857" strokeWidth="2" />
+            </svg>
+          </span>
+          <span className="mt-3 text-[22px] font-extrabold tracking-[-0.03em]">Drinvo</span>
         </div>
-        <div className="hidden max-w-[420px] flex-col gap-3 lg:flex">
-          {[
-            [Receipt, 'Every sale', 'Receipt, stock deduction and profit in one step'],
-            [AlertTriangle, 'Low stock alerts', 'Know what to reorder before you run out'],
-            [TrendingUp, 'Real profit', 'Cost recorded at the moment of each sale'],
-          ].map(([Icon, title, text]) => (
-            <div key={title} className="flex items-center gap-3 rounded-[14px] border border-white/10 bg-white/[0.05] px-4 py-3.5">
-              <span className="grid size-[34px] flex-none place-items-center rounded-[10px] bg-emerald-400/15 text-emerald-300">
-                <Icon size={17} />
-              </span>
-              <div>
-                <b className="block text-[15px]">{title}</b>
-                <small className="text-[12.5px] text-[#9fc2b1]">{text}</small>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
-      {/* Form */}
-      <div className="grid place-items-center px-5 py-10">
-        <div className="w-full max-w-[400px]">
-          <form onSubmit={submit} noValidate className="flex w-full flex-col gap-4">
-            <div>
-              <h2 className="text-[24px] font-bold">Welcome back</h2>
-              <p className="mt-1 text-[13.5px] text-ink-3">Sign in with the email your admin gave you.</p>
-            </div>
-            {notice && !error && <FormError message={notice} />}
-            <FormError message={error} />
-            <FormField label="Email" name="email" type="email" autoComplete="username" register={register} errors={formState.errors} />
-            <FormField label="Password" name="password" type="password" autoComplete="current-password" register={register} errors={formState.errors} />
-            <Button type="submit" variant="primary" size="lg" block loading={formState.isSubmitting}>
-              Sign in
-            </Button>
-            {import.meta.env.DEV && (
-              <p className="text-center text-[12.5px] text-ink-3">
-                Demo data: <span className="font-mono">admin@drinvo.test</span> or <span className="font-mono">john@drinvo.test</span>, password <span className="font-mono">Password123!</span>
-              </p>
-            )}
-            <p className="text-center text-[13px] text-ink-3">New staff? Ask your admin for the sign-up link.</p>
-          </form>
+        <div className="mt-7">
+          <h2 className="text-[24px] font-bold tracking-[-0.02em]">Welcome back</h2>
+          <p className="mt-1.5 text-[14px] text-ink-3">Sign in with the email your admin gave you.</p>
         </div>
-      </div>
-    </div>
+
+        <form onSubmit={submit} noValidate className="mt-6 flex flex-col gap-4">
+          {notice && !error && <FormError message={notice} />}
+          <FormError message={error} />
+          <AuthField label="Email address" icon={Mail} type="email" autoComplete="username" placeholder="you@business.com" error={formState.errors.email?.message} {...register('email')} />
+          <AuthField
+            label="Password"
+            icon={Lock}
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            placeholder="Enter your password"
+            toggle
+            visible={showPassword}
+            onToggle={() => setShowPassword((v) => !v)}
+            error={formState.errors.password?.message}
+            {...register('password')}
+          />
+          <Button type="submit" variant="primary" size="lg" block loading={formState.isSubmitting} className="mt-1 h-[52px] rounded-[15px] text-[15px]">
+            Sign in
+            <ArrowRight size={18} />
+          </Button>
+        </form>
+
+        {import.meta.env.DEV && (
+          <>
+            <div className="my-5 flex items-center gap-3 text-[12px] font-medium text-ink-3">
+              <span className="h-px flex-1 bg-line" />
+              OR
+              <span className="h-px flex-1 bg-line" />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setError('');
+                setValue('email', DEMO.email, { shouldValidate: true });
+                setValue('password', DEMO.password, { shouldValidate: true });
+              }}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-[15px] border border-line bg-surface-2 text-[13.5px] font-semibold text-ink-2 transition-colors hover:border-brand/30 hover:bg-brand-soft/50 hover:text-brand-ink"
+            >
+              <KeyRound size={16} />
+              Fill in the demo account
+              <ArrowRight size={15} />
+            </button>
+          </>
+        )}
+      </AuthCard>
+
+      <p className="mt-6 text-center text-[13px] text-ink-3">New staff? Ask your admin for the sign-up link.</p>
+    </AuthLayout>
   );
 }

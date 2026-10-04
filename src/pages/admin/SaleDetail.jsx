@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Ban, Undo2, Wallet } from '../../components/icons.js';
+import { Ban, Package, Percent, Receipt as ReceiptIcon, ShoppingBag, Undo2, Wallet } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
-import { Card, CardHeader, DetailList } from '../../components/ui/Card.jsx';
+import { Card, CardHeader, DetailList, StatBar } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Badge, PaymentTag, SaleStatusBadge } from '../../components/ui/Badge.jsx';
+import { ProductThumb } from '../../components/ui/Media.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { Receipt, ReceiptActions } from '../../components/Receipt.jsx';
 import { RefundModal, ReturnModal, VoidModal } from '../../components/modals/SaleModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { salesService } from '../../services/index.js';
-import { fmtDateTime, money, PAYMENT_LABEL, plural, shortDateTime } from '../../utils/format.js';
+import { fmtDateTime, money, num, PAYMENT_LABEL, plural, shortDateTime } from '../../utils/format.js';
+import { cn } from '../../utils/cn.js';
 
 export default function SaleDetail() {
   const { id } = useParams();
@@ -60,12 +62,27 @@ export default function SaleDetail() {
         </div>
       )}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
+      {(() => {
+        const units = s.items.reduce((n, i) => n + i.baseQuantity, 0);
+        const margin = s.netTotal > 0 ? (s.profit / s.netTotal) * 100 : 0;
+        return (
+          <StatBar
+            items={[
+              { key: 'items', label: 'Bottles sold', value: num(units), icon: ShoppingBag, iconTone: 'info', footer: plural(s.items.length, 'line') },
+              { key: 'total', label: 'Total amount', value: money(s.netTotal), icon: Wallet, iconTone: 'brand', footer: s.netTotal !== s.total ? `was ${money(s.total)} before returns` : 'paid in full at the till' },
+              { key: 'cost', label: 'Cost', value: money(s.netCost), icon: Package, iconTone: 'neutral', footer: 'weighted average at sale time' },
+              { key: 'margin', label: 'Profit', value: money(s.profit), icon: Percent, iconTone: 'ok', footer: <span className={cn('rounded-full px-2 py-0.5 font-semibold', s.profit >= 0 ? 'bg-ok-soft text-ok' : 'bg-bad-soft text-bad')}>{margin.toFixed(1)}% margin</span> },
+            ]}
+          />
+        );
+      })()}
+
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2.2fr)_minmax(0,1fr)]">
         <div className="grid content-start gap-4">
           <Card flush>
-            <CardHeader flush title="Products" action={<span className="hint">{plural(s.items.length, 'line')}</span>} />
+            <CardHeader flush title={<span className="flex items-center gap-2.5"><span className="tile tile-brand size-8 rounded-[10px]"><ShoppingBag size={16} /></span>Products</span>} action={<span className="rounded-full bg-surface-2 px-2.5 py-1 text-[12px] font-medium text-ink-3">{plural(s.items.length, 'line')}</span>} />
             <div className="overflow-x-auto">
-              <table className="table min-w-[620px]">
+              <table className="table min-w-[600px]">
                 <thead>
                   <tr>
                     <th>Product</th>
@@ -80,10 +97,15 @@ export default function SaleDetail() {
                   {s.items.map((i) => (
                     <tr key={i.id}>
                       <td>
-                        <Link to={`/admin/inventory/${i.variantId}`} className="font-semibold hover:underline">
-                          {i.variantName}
-                        </Link>
-                        <small className="block text-[12px] text-ink-3">{plural(i.baseQuantity, 'bottle')}</small>
+                        <span className="flex items-center gap-3">
+                          <ProductThumb product={{ name: i.variantName }} size={38} />
+                          <span className="min-w-0">
+                            <Link to={`/admin/inventory/${i.variantId}`} className="font-semibold hover:text-brand-ink hover:underline">
+                              {i.variantName}
+                            </Link>
+                            <small className="block text-[12px] text-ink-3">{plural(i.baseQuantity, 'bottle')} in total</small>
+                          </span>
+                        </span>
                       </td>
                       <td>{plural(i.quantity, i.unit)}</td>
                       <td className="num">
@@ -102,7 +124,7 @@ export default function SaleDetail() {
 
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
-              <h3 className="mb-3.5 text-[16px] font-semibold">Summary</h3>
+              <CardHeader title={<span className="flex items-center gap-2.5"><span className="tile tile-ok size-8 rounded-[10px]"><Percent size={16} /></span>Summary</span>} />
               <DetailList
                 rows={[
                   s.totalDiscount > 0 && ['Discount given', <span key="d" className="font-semibold text-warn">{`−${money(s.totalDiscount)}`}</span>],
@@ -116,7 +138,7 @@ export default function SaleDetail() {
               />
             </Card>
             <Card>
-              <h3 className="mb-3.5 text-[16px] font-semibold">Details</h3>
+              <CardHeader title={<span className="flex items-center gap-2.5"><span className="tile tile-info size-8 rounded-[10px]"><Wallet size={16} /></span>Details</span>} />
               <DetailList
                 rows={[
                   [
@@ -142,7 +164,7 @@ export default function SaleDetail() {
 
           {(s.returns.length > 0 || s.refunds.length > 0) && (
             <Card>
-              <h3 className="text-[16px] font-semibold">Returns &amp; refunds</h3>
+              <CardHeader title={<span className="flex items-center gap-2.5"><span className="tile tile-warn size-8 rounded-[10px]"><Undo2 size={16} /></span>Returns &amp; refunds</span>} />
               <p className="hint mb-2">Linked to this sale. The original sale above is unchanged.</p>
               {s.returns.map((r) => (
                 <div key={r.id} className="flex items-center gap-3 border-b border-line-2 py-3 last:border-0">
@@ -180,12 +202,18 @@ export default function SaleDetail() {
           )}
         </div>
 
-        <aside className="flex flex-col gap-3">
-          <div className="label">Receipt</div>
-          <div>
+        <aside className="relative flex flex-col gap-3 overflow-hidden rounded-card border border-line bg-surface p-4 shadow-card xl:sticky xl:top-[84px] xl:self-start">
+          <span className="blob -top-16 -right-16 size-48 opacity-50" aria-hidden="true" />
+          <div className="relative flex items-center justify-between">
+            <span className="flex items-center gap-2.5 text-[16px] font-semibold">
+              <span className="tile tile-brand size-8 rounded-[10px]"><ReceiptIcon size={16} /></span>
+              Receipt
+            </span>
+          </div>
+          <div className="relative rounded-[14px] bg-surface-2/70 px-3 py-5">
             <Receipt sale={s} />
           </div>
-          <ReceiptActions sale={s} className="mt-3" />
+          <ReceiptActions sale={s} className="relative" />
         </aside>
       </div>
 

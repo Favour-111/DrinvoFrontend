@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Plus, ShoppingCart } from '../icons.js';
+import { Check, Plus, ShoppingCart, PackageSearch } from '../icons.js';
 import { Modal } from '../ui/Modal.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Field, FormError, Input, Select, Switch, Textarea } from '../ui/Form.jsx';
@@ -90,7 +90,7 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title="On-Demand Purchase"
+      title="On-Demand Purchase" icon={PackageSearch} tone="brand"
       description="For a customer request this shop doesn't normally stock — buy it in specifically, then sell it to them."
       footer={
         <>
@@ -249,7 +249,7 @@ export function MarkPurchasedModal({ open, onClose, onDone, odp, canSell }) {
       open={open}
       onClose={onClose}
       size="md"
-      title={`Mark Purchased — ${odp.odpNumber}`}
+      title={`Mark Purchased — ${odp.odpNumber}`} icon={Check} tone="brand"
       description={`What you actually bought for ${odp.name}.`}
       footer={
         <>

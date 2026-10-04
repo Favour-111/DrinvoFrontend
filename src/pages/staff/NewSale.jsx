@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Calendar, Check, Pencil, Search, ShoppingCart, Trash2, X } from '../../components/icons.js';
+import { AlertTriangle, ArrowRight, Calendar, Check, Pencil, Receipt, Search, ShoppingCart, Trash2, UserPlus, X } from '../../components/icons.js';
 import { Chips } from '../../components/ui/Nav.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { PAYMENT_ICON } from '../../components/ui/Badge.jsx';
@@ -21,6 +21,12 @@ import { customerService } from '../../services/index.js';
 import { isoDate, money, PAYMENT_LABEL } from '../../utils/format.js';
 import { availableUnits, conversionFor, describeStock, mergeStockRows, minimumFor, priceFor, UNIT_LABEL } from '../../utils/units.js';
 import { cn } from '../../utils/cn.js';
+
+const Sparkle = ({ className }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+    <path d="M12 1l2.4 7.6L22 11l-7.6 2.4L12 21l-2.4-7.6L2 11l7.6-2.4z" />
+  </svg>
+);
 
 /** Per-unit price for a cart line: type the price to sell at directly (can be above or below the
  * catalog price), checked live against the product's minimum selling price. */
@@ -111,7 +117,8 @@ function CustomerPicker({ value, onChange, total, credit }) {
   return (
     <div className="flex flex-col gap-2">
       <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search customer name or phone" aria-label="Search customers" />
-      <div className="max-h-40 overflow-auto rounded-[15px] border border-line-2 bg-surface-2">
+      <div className="flex items-center justify-between text-[12.5px] font-medium text-ink-3">{q ? 'Matches' : 'Recent customers'}</div>
+      <div className="max-h-44 overflow-auto rounded-[15px] border border-line-2 bg-surface-2/60">
         {(data || []).slice(0, 6).map((c) => (
           <button key={c.id} type="button" onClick={() => onChange(c)} className="flex w-full items-center justify-between gap-2 border-b border-line-2 px-3 py-2 text-left text-[13.5px] last:border-0 hover:bg-surface-3">
             <span className="truncate font-medium">{c.name}</span>
@@ -120,7 +127,7 @@ function CustomerPicker({ value, onChange, total, credit }) {
         ))}
         {data && !data.length && <p className="px-3 py-2 text-[13px] text-ink-3">No customer found.</p>}
       </div>
-      <Button size="sm" onClick={() => setAdding(true)}>
+      <Button size="sm" icon={UserPlus} onClick={() => setAdding(true)} className="w-full">
         New customer
       </Button>
     </div>
@@ -220,12 +227,17 @@ export default function NewSale() {
   return (
     <div className="animate-rise grid items-start gap-[18px] md:grid-cols-[minmax(0,1fr)_360px] lg:grid-cols-[minmax(0,1fr)_410px]">
       <div className="grid gap-3.5">
-        <h1 className="text-[22px] font-bold">New Sale</h1>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-[26px] font-extrabold tracking-[-0.025em]">New Sale</h1>
+            <p className="mt-1 text-[13.5px] text-ink-3">Search and add drinks to this sale.</p>
+          </div>
+        </div>
         <label className="relative">
-          <Search size={17} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search drinks, e.g. coke 50cl" aria-label="Search products" className="input h-12 rounded-[14px] pl-10 text-[15px]" />
+          <Search size={18} className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-ink-3" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search drinks, e.g. coke 50cl, Hennessy…" aria-label="Search products" className="input h-13 rounded-[16px] border-transparent bg-surface pl-11 text-[15px] shadow-[0_10px_26px_-18px_rgba(16,24,32,0.35)] focus:border-brand/40" />
         </label>
-        <Chips label="Category" options={categories.map((c) => [c, c])} value={category} onChange={setCategory} />
+        <Chips label="Category" options={categories.map((c) => [c, c === 'All' ? 'All products' : c])} value={category} onChange={setCategory} />
         {list.length ? (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(168px,1fr))]">
             {list.map((p) => (
@@ -247,12 +259,22 @@ export default function NewSale() {
           sheet ? 'translate-y-0' : 'translate-y-[102%]'
         )}
       >
-        <div className="relative flex items-center justify-between px-[18px] pt-[18px] pb-3">
-          <h2 className="text-[17px] font-semibold">Current Sale</h2>
+        <div className="relative flex items-center justify-between gap-3 px-5 pt-5 pb-3.5">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <span className="grid size-12 flex-none place-items-center rounded-[15px] bg-linear-to-br from-brand-soft to-surface-2 text-brand shadow-[inset_0_0_0_1px_var(--line)]">
+              <ShoppingCart size={21} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-[17px] font-bold">Current Sale</h2>
+              <p className="text-[12.5px] text-ink-3">
+                {cart.count} item{cart.count === 1 ? '' : 's'} · {shop?.name}
+              </p>
+            </div>
+          </div>
           <div className="flex gap-1.5">
             {cart.lines.length > 0 && (
-              <Button size="sm" variant="ghost" onClick={() => setClearing(true)}>
-                Clear
+              <Button size="sm" variant="danger-soft" icon={Trash2} onClick={() => setClearing(true)} className="border-transparent bg-transparent shadow-none hover:bg-bad-soft">
+                Clear all
               </Button>
             )}
             <button type="button" aria-label="Close cart" onClick={() => setSheet(false)} className="grid size-[34px] place-items-center rounded-[12px] border border-line bg-surface-2 md:hidden">
@@ -268,16 +290,21 @@ export default function NewSale() {
               const short = cart.shortages.get(p.variantId);
               const units = availableUnits(p);
               return (
-                <div key={l.key} className={cn('flex flex-col gap-2 rounded-[14px] border p-2.5', short ? 'border-bad/40 bg-bad-soft' : 'border-line-2 bg-surface-2')}>
-                  <div className="flex items-center gap-2.5">
-                    <ProductThumb product={p} size={32} />
+                <div key={l.key} className={cn('flex flex-col gap-3 rounded-[18px] border bg-surface p-3.5 shadow-[0_1px_2px_rgba(16,24,32,0.03)]', short ? 'border-bad/40 bg-bad-soft' : 'border-line-2')}>
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-16 flex-none place-items-center rounded-[14px]" style={{ background: `color-mix(in srgb, ${p.color || '#059669'} 14%, var(--surface-2))` }}>
+                      <ProductThumb product={p} size={56} />
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <b className="block truncate text-[13.5px] font-semibold">{p.name}</b>
+                      <b className="block truncate text-[14.5px] font-semibold">{p.name}</b>
                       <PriceEditor product={p} unit={l.unit} override={l.priceOverride} onChange={(priceOverride) => cart.update(l.key, { priceOverride })} />
                     </div>
-                    <button type="button" aria-label={`Remove ${p.name}`} onClick={() => cart.remove(l.key)} className="grid size-7 place-items-center rounded-[9px] border border-line bg-surface-2 text-ink-2 transition-colors hover:border-bad/40 hover:text-bad">
-                      <Trash2 size={14} />
-                    </button>
+                    <div className="flex flex-none flex-col items-end gap-2">
+                      <button type="button" aria-label={`Remove ${p.name}`} onClick={() => cart.remove(l.key)} className="grid size-8 place-items-center rounded-[10px] border border-line bg-surface-2 text-ink-3 transition-colors hover:border-bad/40 hover:bg-bad-soft hover:text-bad">
+                        <Trash2 size={14} />
+                      </button>
+                      <b className="tnum text-[15px] font-bold">{money(l.quantity * linePrice(l))}</b>
+                    </div>
                   </div>
                   {units.length > 1 && (
                     <Segmented
@@ -289,7 +316,7 @@ export default function NewSale() {
                   )}
                   <div className="flex items-center justify-between gap-2">
                     <Stepper value={l.quantity} onChange={(quantity) => cart.update(l.key, { quantity })} label={`Quantity of ${p.name}`} />
-                    <b className="tnum text-[15px]">{money(l.quantity * linePrice(l))}</b>
+                    <span className="tnum text-[12.5px] text-ink-3">{l.quantity} × {money(linePrice(l))}</span>
                   </div>
                   {short && (
                     <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-bad">
@@ -301,22 +328,36 @@ export default function NewSale() {
               );
             })
           ) : (
-            <EmptyState icon={ShoppingCart} title="Cart is empty" text="Tap a drink to add it to this sale." className="py-8" />
+            <div className="flex flex-col items-center px-4 py-10 text-center">
+              <span className="relative grid size-28 place-items-center rounded-full bg-linear-to-br from-brand-soft to-surface-2 text-brand shadow-[inset_0_0_0_1px_var(--line)]">
+                <ShoppingCart size={34} strokeWidth={1.8} />
+                <Sparkle className="absolute -top-1 -right-1 size-4 text-brand-3" />
+                <Sparkle className="absolute bottom-1 -left-2 size-3 text-brand-2" />
+              </span>
+              <b className="mt-5 text-[16px] font-semibold">Your cart is empty</b>
+              <p className="mt-1.5 max-w-[240px] text-[13.5px] text-ink-3">Tap a drink to add it and start a sale.</p>
+            </div>
           )}
 
-          <div className="flex flex-col gap-2.5 border-t border-line-2 pt-3.5">
-            <div className="flex items-baseline justify-between">
-              <span className="font-medium text-ink-2">
-                Total · {cart.count} item{cart.count === 1 ? '' : 's'}
-              </span>
-              <b className="tnum text-[24px] font-bold tracking-[-0.03em]">{money(cart.total)}</b>
+          <div className="flex flex-col gap-2.5 rounded-[18px] border border-brand/15 bg-linear-to-br from-brand-soft/70 to-surface p-4">
+            <div className="flex items-center justify-between text-[13.5px]">
+              <span className="text-ink-2">Total items</span>
+              <b className="tnum font-semibold">{cart.count}</b>
             </div>
-            {cart.totalDiscount > 0 && (
-              <div className="flex items-baseline justify-between text-[12.5px]">
-                <span className="text-ink-3">Discount given</span>
-                <span className="tnum font-semibold text-warn">−{money(cart.totalDiscount)}</span>
-              </div>
-            )}
+            <div className="flex items-center justify-between text-[13.5px]">
+              <span className="text-ink-2">Subtotal</span>
+              <b className="tnum font-semibold">{money(cart.total + cart.totalDiscount)}</b>
+            </div>
+            <div className="flex items-center justify-between text-[13.5px]">
+              <span className="text-ink-2">Discount</span>
+              <b className={cn('tnum font-semibold', cart.totalDiscount > 0 ? 'text-warn' : 'text-ink-3')}>{cart.totalDiscount > 0 ? `− ${money(cart.totalDiscount)}` : money(0)}</b>
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-brand/15 pt-3">
+              <span className="text-[15px] font-semibold">Total</span>
+              <b className="tnum text-[28px] font-extrabold tracking-[-0.03em] text-brand-ink">{money(cart.total)}</b>
+            </div>
+          <div className="flex flex-col gap-2.5 pt-1">
+          </div>
             {cart.backdatedAt ? (
               <Field label="Sale date" htmlFor="backdate" hint="This is a past sale — it’ll be counted under this date in reports, and stock is removed now.">
                 <div className="flex items-center gap-2">
@@ -339,7 +380,7 @@ export default function NewSale() {
                 onClick={() => cart.setBackdatedAt(new Date(`${isoDate(new Date(Date.now() - 864e5))}T12:00:00`).toISOString())}
                 className="flex items-center gap-1.5 self-start text-[12.5px] font-semibold text-brand-ink hover:underline"
               >
-                <Calendar size={13} /> Logging a past sale? Backdate it
+                <Calendar size={14} /> Logging a past sale? Backdate it
               </button>
             )}
             <div>
@@ -386,7 +427,7 @@ export default function NewSale() {
                 </div>
               </div>
             )}
-            <Field label={onAccount ? 'Customer (owes the balance)' : 'Customer'}>
+            <Field label={onAccount ? 'Customer (owes the balance)' : 'Customer (optional)'}>
               <CustomerPicker value={cart.customer} onChange={cart.setCustomer} total={isPart ? Math.max(0, cart.total - partPaid) : cart.total} credit={onAccount} />
             </Field>
           </div>
@@ -394,8 +435,9 @@ export default function NewSale() {
 
         <div className="relative flex flex-col gap-2 border-t border-line-2 px-[18px] pt-3 pb-[calc(14px+env(safe-area-inset-bottom))]">
           {error && <div className="rounded-[14px] border border-bad/15 bg-bad-soft px-3 py-2.5 text-[13px] font-medium text-bad">{error}</div>}
-          <Button variant="primary" size="lg" block icon={Check} loading={busy} disabled={blocked} onClick={complete}>
-            Complete Sale{cart.lines.length ? ` · ${money(cart.total)}` : ''}
+          <Button variant="primary" size="lg" block loading={busy} disabled={blocked} onClick={complete} className="h-[56px] justify-between rounded-[16px] px-5 text-[15px]">
+            <span className="inline-flex items-center gap-2"><Check size={18} />Complete Sale{cart.lines.length ? ` • ${money(cart.total)}` : ''}</span>
+            <ArrowRight size={18} />
           </Button>
           {cart.shortages.size > 0 ? (
             <p className="text-center text-[12.5px] text-bad">Fix the highlighted items. Stock can’t go below zero.</p>

@@ -20,7 +20,7 @@ function TransferDetailModal({ transferId, onClose }) {
   const { data } = useApi(() => (transferId ? transferService.get(transferId) : Promise.resolve(null)), [transferId]);
   if (!transferId) return null;
   return (
-    <Modal open={Boolean(transferId)} onClose={onClose} title={data ? data.transferNumber : 'Transfer'} size="md">
+    <Modal open={Boolean(transferId)} onClose={onClose} title={data ? data.transferNumber : 'Transfer'} icon={ArrowLeftRight} tone="info" size="md">
       {!data ? (
         <div className="h-40 animate-pulse rounded-xl bg-surface-2" />
       ) : (

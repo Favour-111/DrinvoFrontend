@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeftRight, ArrowRight, Check, Plus, SlidersHorizontal, Trash2 } from '../icons.js';
-import { Modal, ConfirmDialog } from '../ui/Modal.jsx';
+import { ArrowLeftRight, ArrowRight, Check, Plus, SlidersHorizontal, Trash2, Truck, Package } from '../icons.js';
+import { Modal, ConfirmDialog, ModalSection } from '../ui/Modal.jsx';
 import { Button, IconButton } from '../ui/Button.jsx';
 import { Field, FormError, MoneyInput, Select, Textarea } from '../ui/Form.jsx';
 import { Combobox } from '../ui/Combobox.jsx';
@@ -119,7 +119,7 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title="Restock"
+      title="Restock" icon={Truck} tone="brand"
       description="Add one or more lines — even different units of the same product, like 10 cartons and 4 bottles — then confirm together as one purchase."
       footer={
         <>
@@ -137,12 +137,15 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
       ) : (
         <div className="flex flex-col gap-3.5">
           <FormError message={serverError} />
-          <Field label="Supplier" htmlFor="rs-supplier">
-            <Combobox id="rs-supplier" value={supplier} onChange={setSupplier} options={supplierOptions(data.suppliers)} placeholder="Search suppliers…" />
-          </Field>
+          <ModalSection title="Supplier" icon={Truck}>
+            <Field label="Who you bought from" htmlFor="rs-supplier">
+              <Combobox id="rs-supplier" value={supplier} onChange={setSupplier} options={supplierOptions(data.suppliers)} placeholder="Search suppliers…" />
+            </Field>
+          </ModalSection>
 
-          <div className="rounded-[16px] border border-line-2 bg-surface-2 p-3.5">
-            <div className="label mb-2">Add to this restock</div>
+          <ModalSection title="Products" icon={Package} hint={lines.length ? `${lines.length} line${lines.length === 1 ? '' : 's'}` : undefined}>
+            <div className="rounded-[14px] border border-line-2 bg-surface p-3.5">
+              <div className="label mb-2">Add to this restock</div>
             <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.6fr)_84px_112px_120px_auto]">
               <Field label="Product" htmlFor="rs-variant">
                 <Combobox id="rs-variant" value={draft.variantId} onChange={onDraftVariant} options={variantOptions(data.items)} placeholder="Search products…" />
@@ -219,6 +222,8 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
             </div>
           )}
 
+          </ModalSection>
+
           <Field label="Notes" htmlFor="rs-notes">
             <Textarea id="rs-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional, e.g. invoice number" className="min-h-16" />
           </Field>
@@ -291,7 +296,7 @@ export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity,
         open={open && !confirming}
         onClose={onClose}
         size="lg"
-        title="Stock adjustment"
+        title="Stock adjustment" icon={SlidersHorizontal} tone="warn"
         description="For damaged, lost or expired stock and recount corrections."
         footer={
           <>
@@ -484,7 +489,7 @@ export function TransferModal({ open, onClose, onDone }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title="New Stock Transfer"
+      title="New Stock Transfer" icon={ArrowLeftRight} tone="info"
       description="Move inventory between your shops. Source stock decreases, destination stock increases — nothing is merged."
       footer={
         <>

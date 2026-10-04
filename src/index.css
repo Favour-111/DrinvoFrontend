@@ -1,12 +1,12 @@
 @import 'tailwindcss';
 
 /* ---------------------------------------------------------------
-   Drinvo design tokens — clean, minimal SaaS system.
-   Flat white surfaces on a very light neutral page, subtle borders,
-   quiet shadows, one restrained brand green. No blur, no gradients
-   baked into surfaces — colour is spent only where it means something.
-   Light palette on :root, dark palette via prefers-color-scheme.
-   Components only use these tokens, so both themes stay consistent.
+   Drinvo design tokens — premium light SaaS system.
+   Soft layered shadows, a very light mint-tinted page with faint
+   decorative blobs, one brand green used for every primary action,
+   and gradient icon tiles for metrics. Light palette on :root, dark
+   palette via prefers-color-scheme. Components only use these tokens,
+   so both themes stay consistent.
    --------------------------------------------------------------- */
 :root {
   --bg: #f6f7fb;
@@ -45,8 +45,11 @@
   --c-cost: #9aa1ae;
   --c-profit: #7c5cf0;
 
-  --shadow: 0 1px 2px rgba(16, 24, 32, 0.04), 0 1px 1px rgba(16, 24, 32, 0.03);
-  --shadow-lg: 0 20px 44px -16px rgba(16, 24, 32, 0.16), 0 6px 16px -6px rgba(16, 24, 32, 0.08);
+  --blob-a: rgba(16, 185, 129, 0.13);
+  --blob-b: rgba(5, 150, 105, 0.08);
+  --shadow: 0 1px 2px rgba(16, 24, 32, 0.035), 0 2px 6px -2px rgba(16, 24, 32, 0.05), 0 10px 26px -14px rgba(16, 24, 32, 0.1);
+  --shadow-hover: 0 2px 4px rgba(16, 24, 32, 0.04), 0 14px 32px -14px rgba(4, 120, 87, 0.22);
+  --shadow-lg: 0 24px 48px -18px rgba(16, 24, 32, 0.2), 0 8px 18px -8px rgba(16, 24, 32, 0.1);
   --shadow-glow: 0 1px 2px rgba(16, 24, 32, 0.04), 0 1px 1px rgba(16, 24, 32, 0.03);
   --scrim: rgba(17, 24, 39, 0.4);
   color-scheme: light;
@@ -89,7 +92,10 @@
     --c-cost: #7c8695;
     --c-profit: #a48bff;
 
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+    --blob-a: rgba(16, 185, 129, 0.1);
+    --blob-b: rgba(16, 185, 129, 0.05);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px -6px rgba(0, 0, 0, 0.35);
+    --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.3), 0 14px 30px -14px rgba(16, 185, 129, 0.25);
     --shadow-lg: 0 24px 50px -18px rgba(0, 0, 0, 0.55), 0 8px 20px -8px rgba(0, 0, 0, 0.35);
     --shadow-glow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
     --scrim: rgba(2, 6, 4, 0.6);
@@ -130,7 +136,10 @@
   --c-rev: #34d399;
   --c-cost: #7c8695;
   --c-profit: #a48bff;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --blob-a: rgba(16, 185, 129, 0.1);
+  --blob-b: rgba(16, 185, 129, 0.05);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px -6px rgba(0, 0, 0, 0.35);
+  --shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.3), 0 14px 30px -14px rgba(16, 185, 129, 0.25);
   --shadow-lg: 0 24px 50px -18px rgba(0, 0, 0, 0.55), 0 8px 20px -8px rgba(0, 0, 0, 0.35);
   --shadow-glow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
   --scrim: rgba(2, 6, 4, 0.6);
@@ -172,6 +181,7 @@
   --color-profit: var(--c-profit);
   --color-scrim: var(--scrim);
   --shadow-card: var(--shadow);
+  --shadow-card-hover: var(--shadow-hover);
   --shadow-pop: var(--shadow-lg);
   --shadow-glow: var(--shadow-glow);
   --radius-card: 18px;
@@ -199,7 +209,10 @@
 
 @layer base {
   html {
-    @apply mesh-bg;
+    background-color: var(--bg);
+    background-image: radial-gradient(900px 520px at 100% -8%, var(--blob-a), transparent 62%), radial-gradient(760px 480px at -12% 4%, var(--blob-b), transparent 60%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
   body {
     color: var(--ink);
@@ -239,8 +252,15 @@
     @apply glass rounded-card shadow-card min-w-0;
     position: relative;
   }
+  .card-lift {
+    transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  }
+  .card-lift:hover {
+    box-shadow: var(--shadow-hover);
+    border-color: color-mix(in srgb, var(--brand-2) 22%, var(--line));
+  }
   .input {
-    @apply h-[42px] w-full min-w-0 rounded-[11px] border border-line bg-surface px-3.5 text-[14px] text-ink transition-[border-color,box-shadow] placeholder:text-ink-3;
+    @apply h-11 w-full min-w-0 rounded-[12px] border border-line bg-surface px-3.5 text-[14px] text-ink shadow-[0_1px_2px_rgba(16,24,32,0.03)] transition-[border-color,box-shadow] placeholder:text-ink-3 hover:border-ink-3/40;
   }
   .input:focus {
     outline: none;
@@ -298,8 +318,57 @@
   .table tr.row-link {
     @apply cursor-pointer transition-colors;
   }
+  .table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+  .table tbody tr:hover td {
+    background: color-mix(in srgb, var(--brand-soft) 35%, var(--surface));
+  }
   .table tr.row-link:hover td {
-    background: var(--surface-2);
+    background: color-mix(in srgb, var(--brand-soft) 55%, var(--surface));
+  }
+
+  /* Gradient icon tile used by metric cards and feature headers */
+  .tile {
+    display: grid;
+    place-items: center;
+    flex: none;
+    border-radius: 12px;
+    width: 38px;
+    height: 38px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tile-c) 18%, transparent), 0 4px 10px -6px var(--tile-c);
+    background: linear-gradient(145deg, color-mix(in srgb, var(--tile-c) 22%, var(--surface)), color-mix(in srgb, var(--tile-c) 10%, var(--surface)));
+    color: var(--tile-c);
+  }
+  .tile-brand {
+    --tile-c: var(--brand-2);
+  }
+  .tile-ok {
+    --tile-c: var(--ok);
+  }
+  .tile-warn {
+    --tile-c: var(--warn);
+  }
+  .tile-bad {
+    --tile-c: var(--bad);
+  }
+  .tile-info {
+    --tile-c: var(--info);
+  }
+  .tile-profit {
+    --tile-c: var(--c-profit);
+  }
+  .tile-neutral {
+    --tile-c: var(--ink-2);
+  }
+
+  /* Soft decorative blob, used behind hero icons and empty states */
+  .blob {
+    position: absolute;
+    border-radius: 999px;
+    background: radial-gradient(circle at 35% 35%, color-mix(in srgb, var(--brand-3) 35%, transparent), transparent 70%);
+    filter: blur(2px);
+    pointer-events: none;
   }
 
   /* Skeleton shimmer */

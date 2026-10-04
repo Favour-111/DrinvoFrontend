@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { AlertTriangle, Plus, ShieldCheck, Trash2 } from '../icons.js';
+import { AlertTriangle, Plus, ShieldCheck, Trash2, KeyRound, Store, Truck, UserPlus, Wallet } from '../icons.js';
 import { Modal } from '../ui/Modal.jsx';
 import { Button } from '../ui/Button.jsx';
 import { DetailList } from '../ui/Card.jsx';
@@ -70,7 +70,7 @@ export function SupplierModal({ open, onClose, supplier, onDone }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={edit ? 'Edit supplier' : 'Add Supplier'}
+      title={edit ? 'Edit supplier' : 'Add Supplier'} icon={Truck} tone="brand"
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -152,7 +152,7 @@ export function DeleteSupplierModal({ open, onClose, supplier, onDone }) {
       open={open}
       onClose={busy ? undefined : onClose}
       size="sm"
-      title={`Delete ${supplier.name}?`}
+      title={`Delete ${supplier.name}?`} icon={Trash2} tone="bad"
       footer={
         <>
           <Button onClick={onClose} disabled={busy}>
@@ -212,7 +212,7 @@ export function CustomerModal({ open, onClose, customer, onDone }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={edit ? 'Edit customer' : 'Add Customer'}
+      title={edit ? 'Edit customer' : 'Add Customer'} icon={UserPlus} tone="brand"
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -262,7 +262,7 @@ export function PaymentModal({ open, onClose, customer, onDone }) {
       open={open}
       onClose={onClose}
       size="sm"
-      title="Record Payment"
+      title="Record Payment" icon={Wallet} tone="brand"
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -326,7 +326,7 @@ export function StaffModal({ open, onClose, member, onDone }) {
     <Modal
       open={open}
       onClose={onClose}
-      title={edit ? 'Edit staff' : 'Add Staff'}
+      title={edit ? 'Edit staff' : 'Add Staff'} icon={UserPlus} tone="brand"
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -387,7 +387,7 @@ export function ResetPasswordModal({ open, onClose, member }) {
       open={open}
       onClose={onClose}
       size="sm"
-      title="Reset password"
+      title="Reset password" icon={KeyRound} tone="warn"
       description={`${member?.name} will need to sign in again with the new password.`}
       footer={
         <>
@@ -432,7 +432,7 @@ export function ShopModal({ open, onClose, onDone }) {
     <Modal
       open={open}
       onClose={onClose}
-      title="Add Shop"
+      title="Add Shop" icon={Store} tone="brand"
       description="Each shop keeps its own stock, sales, staff and reports."
       footer={
         <>

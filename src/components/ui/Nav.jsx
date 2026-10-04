@@ -44,7 +44,7 @@ export function Chips({ options, value, onChange, label }) {
           onClick={() => onChange(v)}
           className={cn(
             'inline-flex h-8 flex-none items-center rounded-full border px-3 text-[13px] font-medium whitespace-nowrap transition-[background,border-color,color] duration-150',
-            value === v ? 'border-ink bg-ink text-surface-solid' : 'border-line bg-surface text-ink-2 hover:border-ink-3/30'
+            value === v ? 'border-brand bg-brand text-on-brand shadow-[0_6px_14px_-8px_var(--brand-2)]' : 'border-line bg-surface text-ink-2 shadow-[0_1px_2px_rgba(16,24,32,0.03)] hover:border-brand/30 hover:text-ink'
           )}
         >
           {l}

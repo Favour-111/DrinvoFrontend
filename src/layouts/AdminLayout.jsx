@@ -129,18 +129,22 @@ export default function AdminLayout() {
                 to={to}
                 className={({ isActive }) =>
                   cn(
-                    'flex h-[40px] items-center gap-3 rounded-[10px] px-3 text-[13.5px] font-medium transition-colors duration-150',
-                    isActive ? 'bg-brand-soft text-brand-ink' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+                    'relative flex h-[40px] items-center gap-3 rounded-[11px] px-3 text-[13.5px] font-medium transition-colors duration-150',
+                    isActive ? 'bg-brand-soft text-brand-ink before:absolute before:top-2 before:bottom-2 before:-left-4 before:w-[3px] before:rounded-r-full before:bg-brand' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
                   )
                 }
               >
-                <Icon size={18} />
-                <span className="flex-1">{label}</span>
-                {to.endsWith('inventory') && alerts.length > 0 && (
-                  <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'inventory' ? 'bg-brand/15 text-brand-ink' : 'bg-warn-soft text-warn')}>{alerts.length}</em>
-                )}
-                {to.endsWith('stock-counts') && countAlerts.length > 0 && (
-                  <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'stock-counts' ? 'bg-brand/15 text-brand-ink' : 'bg-bad-soft text-bad')}>{countAlerts.length}</em>
+                {({ isActive }) => (
+                  <>
+                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className={cn('flex-none', isActive && 'text-brand')} />
+                    <span className="flex-1">{label}</span>
+                    {to.endsWith('inventory') && alerts.length > 0 && (
+                      <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'inventory' ? 'bg-brand/15 text-brand-ink' : 'bg-warn-soft text-warn')}>{alerts.length}</em>
+                    )}
+                    {to.endsWith('stock-counts') && countAlerts.length > 0 && (
+                      <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'stock-counts' ? 'bg-brand/15 text-brand-ink' : 'bg-bad-soft text-bad')}>{countAlerts.length}</em>
+                    )}
+                  </>
                 )}
               </NavLink>
             ))}
@@ -155,7 +159,6 @@ export default function AdminLayout() {
             </span>
             <ChevronRight size={16} className="text-ink-3" />
           </Link>
-          <PoweredBy className="mt-3" />
         </div>
       </aside>
       {drawer && <div className="animate-fade fixed inset-0 z-30 bg-scrim lg:hidden" onClick={() => setDrawer(false)} />}
@@ -167,7 +170,8 @@ export default function AdminLayout() {
           <h1 className="mr-auto truncate text-[20px] font-bold sm:text-[22px]">{TITLES[section] || ''}</h1>
           <label className="relative hidden w-[min(280px,28vw)] lg:block">
             <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
-            <input onKeyDown={onSearch} placeholder="Search products or receipts" aria-label="Search products or receipts" className="input h-10 pl-9" />
+            <input onKeyDown={onSearch} placeholder="Search products or receipts" aria-label="Search products or receipts" className="input h-10 pr-12 pl-9" />
+            <kbd className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded-[6px] border border-line bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-3">⌘ K</kbd>
           </label>
 
           <div className="relative">
@@ -290,6 +294,7 @@ export default function AdminLayout() {
         </header>
         {/* Remount pages when the shop changes so all data reloads for that shop */}
         <Outlet key={shop?.id} />
+        <PoweredBy className="mt-10" />
       </main>
 
       <ShopModal

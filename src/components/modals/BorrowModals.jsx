@@ -124,7 +124,7 @@ export function BorrowModal({ open, onClose, onDone }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title="Borrowed Drinks"
+      title="Borrowed Drinks" icon={Undo2} tone="brand"
       description="For drinks borrowed to or from someone outside the business. Stock moves now; this is never a sale."
       footer={
         <>
@@ -304,7 +304,7 @@ export function ReturnBorrowingModal({ open, onClose, onDone, borrowing }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title={`Return — ${borrowing.borrowNumber}`}
+      title={`Return — ${borrowing.borrowNumber}`} icon={Undo2} tone="brand"
       description={borrowing.direction === 'LENT' ? `What ${borrowing.counterpartyName} is giving back.` : `What we're giving back to ${borrowing.counterpartyName}.`}
       footer={
         <>

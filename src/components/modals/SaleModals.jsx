@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Ban, Calendar, Check, Plus, Trash2, Wallet } from '../icons.js';
+import { Ban, Calendar, Check, Plus, Trash2, Wallet, Receipt, Undo2 } from '../icons.js';
 import { Modal, ConfirmDialog } from '../ui/Modal.jsx';
 import { Button, IconButton } from '../ui/Button.jsx';
 import { Field, FormError, Input, MoneyInput, Select, Stepper, Switch, Textarea } from '../ui/Form.jsx';
@@ -64,7 +64,7 @@ export function ReturnModal({ open, onClose, sale, onDone }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title="Process return"
+      title="Process return" icon={Undo2} tone="warn"
       description={`The original sale ${sale.receiptNumber} stays in history. This creates a linked return.`}
       footer={
         <>
@@ -182,7 +182,7 @@ export function RefundModal({ open, onClose, sale, onDone }) {
       <Modal
         open={open && !confirming}
         onClose={onClose}
-        title="Refund"
+        title="Refund" icon={Wallet} tone="info"
         description="Refund money without returning items, e.g. an overcharge. Stock does not change."
         footer={
           <>
@@ -247,7 +247,7 @@ export function VoidModal({ open, onClose, sale, onDone }) {
       open={open}
       onClose={onClose}
       size="sm"
-      title={`Void ${sale.receiptNumber}?`}
+      title={`Void ${sale.receiptNumber}?`} icon={Ban} tone="bad"
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -459,7 +459,7 @@ export function LogSaleModal({ open, onClose, onDone }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title="Log a Sale"
+      title="Log a Sale" icon={Receipt} tone="brand"
       description={shop ? `For ${shop.name}. Switch shops with the picker in the header first to log one for a different shop.` : undefined}
       footer={
         <>

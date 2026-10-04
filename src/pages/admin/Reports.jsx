@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftRight, Download, Package, Receipt, TrendingUp } from '../../components/icons.js';
+import { ArrowLeftRight, BarChart3, Download, Layers, Package, Receipt, RotateCcw, ShoppingCart, Tag, TrendingUp, Undo2, Wallet } from '../../components/icons.js';
 import { Page, PageHeader, Tabs, RANGE_OPTIONS } from '../../components/ui/Nav.jsx';
-import { Card, CardHeader, MiniStat } from '../../components/ui/Card.jsx';
+import { Card, CardHeader } from '../../components/ui/Card.jsx';
+import { Sparkline } from '../../components/ui/Sparkline.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { movementLabel } from '../../components/ui/Badge.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
@@ -26,17 +27,41 @@ const REPORT_TABS = [
   ['stock', 'Stock Movements'],
 ];
 
-function BigNumber({ label, value, note, icon: Icon, dark }) {
+const KPI_TONE = {
+  brand: { bg: 'from-[#e9faf3] via-surface to-surface', border: 'border-brand/15', color: 'var(--brand-2)' },
+  profit: { bg: 'from-[#f1ecff] via-surface to-surface', border: 'border-profit/20', color: 'var(--c-profit)' },
+  info: { bg: 'from-[#e8f0ff] via-surface to-surface', border: 'border-info/20', color: 'var(--info)' },
+  neutral: { bg: 'from-surface-2 via-surface to-surface', border: 'border-line', color: 'var(--ink-2)' },
+};
+
+/** Headline figure on a soft tinted gradient, with an optional trend line drawn from the report's daily series. */
+function KpiCard({ label, value, note, icon: Icon, tone = 'brand', spark }) {
+  const t = KPI_TONE[tone];
   return (
-    <div className="card p-[22px]">
-      <small className="flex items-center gap-2 text-[13.5px] font-medium text-ink-2">
-        <span className={cn('grid size-7 place-items-center rounded-[10px]', dark ? 'bg-brand text-on-brand' : 'bg-brand-soft text-brand')}>
-          <Icon size={15} />
+    <div className={cn('relative overflow-hidden rounded-card border bg-linear-to-br p-5 shadow-card', t.bg, t.border)}>
+      <div className="flex items-center gap-3">
+        <span className={cn('tile size-10 rounded-[12px]', `tile-${tone}`)}>
+          <Icon size={18} />
         </span>
-        {label}
-      </small>
-      <div className="tnum mt-3 truncate text-[28px] font-bold tracking-[-0.035em] sm:text-[34px]">{value}</div>
-      <div className="mt-2 text-[12.5px] text-ink-3">{note}</div>
+        <span className="text-[13.5px] font-medium text-ink-2">{label}</span>
+      </div>
+      <div className="tnum mt-4 truncate text-[30px] font-bold tracking-[-0.035em] sm:text-[34px]">{value}</div>
+      <div className="mt-1.5 text-[12.5px] text-ink-3">{note}</div>
+      {spark && spark.length > 1 && <Sparkline values={spark} color={t.color} width={260} height={56} fluid className="mt-4 block" />}
+    </div>
+  );
+}
+
+function SmallStat({ label, value, icon: Icon, tone = 'neutral' }) {
+  return (
+    <div className="card flex min-w-0 flex-col gap-3 p-4">
+      <span className={cn('tile size-9 rounded-[11px]', `tile-${tone}`)}>
+        <Icon size={16} />
+      </span>
+      <div className="min-w-0">
+        <div className="truncate text-[12.5px] text-ink-3">{label}</div>
+        <div className="tnum mt-0.5 truncate text-[17px] font-bold tracking-[-0.02em]">{value}</div>
+      </div>
     </div>
   );
 }
@@ -58,26 +83,26 @@ function SalesTab({ data, sort, setSort, navigate }) {
   return (
     <>
       <div className="grid gap-4 md:grid-cols-3">
-        <BigNumber label="Revenue" icon={Receipt} value={money(t.revenue)} note={`${num(t.transactions)} transactions`} />
-        <BigNumber label="Cost of Goods" icon={Package} value={money(t.cost)} note="weighted average cost at time of sale" />
-        <BigNumber dark label="Gross Profit" icon={TrendingUp} value={money(t.grossProfit)} note={`${pct(t.margin)} gross margin`} />
+        <KpiCard tone="brand" label="Total revenue" icon={Wallet} value={money(t.revenue)} note={`${num(t.transactions)} transactions`} spark={data.series.map((p) => p.revenue)} />
+        <KpiCard tone="profit" label="Cost of goods" icon={Package} value={money(t.cost)} note="weighted average cost at time of sale" spark={data.series.map((p) => p.cost)} />
+        <KpiCard tone="info" label="Gross profit" icon={TrendingUp} value={money(t.grossProfit)} note={`${pct(t.margin)} gross margin`} spark={data.series.map((p) => p.profit)} />
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <MiniStat label="Units Sold" value={num(t.unitsSold)} />
-        <MiniStat label="Transactions" value={num(t.transactions)} />
-        <MiniStat label="Average Sale" value={money(t.averageSale)} />
-        <MiniStat label="Returns" value={num(t.returns)} />
-        <MiniStat label="Refunds" value={money(t.refunds)} />
-        <MiniStat label="Credit Outstanding" value={money(t.creditOutstanding)} tone="warn" />
+        <SmallStat label="Units sold" value={num(t.unitsSold)} icon={ShoppingCart} tone="brand" />
+        <SmallStat label="Transactions" value={num(t.transactions)} icon={Receipt} tone="info" />
+        <SmallStat label="Average sale" value={money(t.averageSale)} icon={Tag} tone="profit" />
+        <SmallStat label="Returns" value={num(t.returns)} icon={Undo2} tone="warn" />
+        <SmallStat label="Refunds" value={money(t.refunds)} icon={RotateCcw} tone="bad" />
+        <SmallStat label="Credit outstanding" value={money(t.creditOutstanding)} icon={Layers} tone="warn" />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
         <Card>
-          <CardHeader title="Revenue, cost & profit" action={<ChartLegend />} />
+          <CardHeader title={<span className="flex items-center gap-2.5"><span className="tile tile-brand size-8 rounded-[10px]"><BarChart3 size={16} /></span>Revenue, cost &amp; profit</span>} action={<ChartLegend />} />
           <SalesChart points={data.series} granularity={data.range.granularity} variant="bars" height={280} />
         </Card>
         <Card>
-          <CardHeader title="Payment methods" action={<span className="hint">share of revenue</span>} />
+          <CardHeader title={<span className="flex items-center gap-2.5"><span className="tile tile-info size-8 rounded-[10px]"><Wallet size={16} /></span>Payment methods</span>} action={<span className="hint">share of revenue</span>} />
           <div className="mb-4 flex h-3.5 gap-[3px] overflow-hidden rounded-full">
             {data.paymentMix
               .filter((m) => m.share > 0)
@@ -159,9 +184,9 @@ function StockTab({ data, navigate }) {
   return (
     <>
       <div className="grid gap-4 md:grid-cols-3">
-        <BigNumber dark label="Stock In" icon={TrendingUp} value={`${num(t.in)} bottles`} note="restocks, returns and corrections" />
-        <BigNumber label="Stock Out" icon={Package} value={`${num(t.out)} bottles`} note="sales, damage, loss and corrections" />
-        <BigNumber label="Net Change" icon={ArrowLeftRight} value={`${t.net >= 0 ? '+' : ''}${num(t.net)} bottles`} note="stock in minus stock out" />
+        <KpiCard tone="brand" label="Stock in" icon={TrendingUp} value={`${num(t.in)} bottles`} note="restocks, returns and corrections" />
+        <KpiCard tone="neutral" label="Stock out" icon={Package} value={`${num(t.out)} bottles`} note="sales, damage, loss and corrections" />
+        <KpiCard tone="info" label="Net change" icon={ArrowLeftRight} value={`${t.net >= 0 ? '+' : ''}${num(t.net)} bottles`} note="stock in minus stock out" />
       </div>
 
       <Card flush>

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
+import { Sparkline } from './Sparkline.jsx';
 
 export function Card({ as: As = 'section', className, flush, children, ...props }) {
   return (
@@ -27,66 +28,33 @@ export function CardLink({ to, children }) {
   );
 }
 
-const ICON_TONE = {
-  brand: 'bg-brand-soft text-brand',
-  warn: 'bg-warn-soft text-warn',
-  bad: 'bg-bad-soft text-bad',
-  neutral: 'bg-surface-3 text-ink-2',
-};
-
 /**
- * Headline number card: icon, label, a big prominent value and a small
- * trend pill. `dark` only changes the icon to a solid brand fill — every
- * stat card otherwise reads the same, so the row stays calm and uniform.
+ * Metric card: gradient icon tile, label, big value, optional trend footer and an
+ * optional sparkline across the bottom-right. Each item in a StatBar is its own card.
  */
-export function StatCard({ label, value, icon: Icon, footer, to, dark, iconTone = 'brand' }) {
-  const body = (
-    <>
-      <div className="mb-2.5 flex items-center justify-between">
-        <span className={cn('grid size-[34px] place-items-center rounded-[10px]', dark ? 'bg-brand text-on-brand' : ICON_TONE[iconTone])}>{Icon && <Icon size={17} />}</span>
-        {to && (
-          <span className="grid size-8 place-items-center rounded-full border border-line text-ink-3 transition-colors group-hover:border-ink-3/40 group-hover:text-ink-2">
-            <ArrowUpRight size={15} />
-          </span>
-        )}
-      </div>
-      <div className="text-[13.5px] font-medium text-ink-2">{label}</div>
-      <div className="tnum mt-1 truncate text-[22px] font-bold tracking-[-0.03em] sm:text-[26px]">{value}</div>
-      {footer && <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-ink-3">{footer}</div>}
-    </>
-  );
-  const cls = cn('card group flex min-w-0 flex-col p-3.5 text-left sm:p-[18px]', to && 'transition-shadow hover:shadow-pop');
-  return to ? (
-    <Link to={to} className={cls}>
-      {body}
-    </Link>
-  ) : (
-    <div className={cls}>{body}</div>
-  );
-}
-
-/**
- * One bordered bar holding several stats side by side, divided by hairlines
- * instead of separate shadowed cards — calmer than a row of individual tiles.
- */
-export function StatBar({ items }) {
+export function StatBar({ items, className }) {
   return (
-    <div className="card grid grid-cols-2 divide-y divide-line-2 p-0 sm:grid-cols-3 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
-      {items.map(({ key, label, value, icon: Icon, footer, to, iconTone = 'brand' }) => {
+    <div className={cn('grid grid-cols-2 gap-3 sm:gap-4', COLS[items.length] || COLS[5], className)}>
+      {items.map(({ key, label, value, icon: Icon, footer, to, iconTone = 'brand', spark, sparkColor }) => {
         const content = (
           <>
-            <div className="mb-2.5 flex items-center justify-between">
-              <span className={cn('grid size-[34px] place-items-center rounded-[10px]', ICON_TONE[iconTone])}>{Icon && <Icon size={17} />}</span>
-              {to && <ArrowUpRight size={15} className="text-ink-3 transition-colors group-hover:text-ink-2" />}
+            <div className="flex items-start justify-between gap-2">
+              <span className={cn('tile', `tile-${iconTone}`)}>{Icon && <Icon size={18} strokeWidth={2} />}</span>
+              {to ? (
+                <span className="grid size-7 flex-none place-items-center rounded-full border border-line text-ink-3 transition-colors group-hover:border-brand/40 group-hover:text-brand-ink">
+                  <ArrowUpRight size={14} />
+                </span>
+              ) : null}
             </div>
-            <div className="text-[13.5px] font-medium text-ink-2">{label}</div>
-            <div className="tnum mt-1 truncate text-[22px] font-bold tracking-[-0.03em] sm:text-[26px]">{value}</div>
-            {footer && <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-ink-3">{footer}</div>}
+            <div className="mt-3.5 text-[13px] font-medium text-ink-2">{label}</div>
+            <div className="tnum mt-1 truncate text-[22px] font-bold tracking-[-0.03em] sm:text-[24px]">{value}</div>
+            {spark && spark.length > 1 && <Sparkline values={spark} color={sparkColor || TILE_COLOR[iconTone]} width={120} height={34} fluid className="mt-3 block" />}
+            {footer && <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 text-[12px] text-ink-3">{footer}</div>}
           </>
         );
-        const cls = 'group flex min-w-0 flex-col p-4 sm:p-5';
+        const cls = cn('card group flex min-w-0 flex-col p-4 text-left sm:p-[18px]', to && 'card-lift cursor-pointer');
         return to ? (
-          <Link key={key} to={to} className={cn(cls, 'transition-colors hover:bg-surface-2')}>
+          <Link key={key} to={to} className={cls}>
             {content}
           </Link>
         ) : (
@@ -96,6 +64,40 @@ export function StatBar({ items }) {
         );
       })}
     </div>
+  );
+}
+
+const COLS = { 1: 'lg:grid-cols-1', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4', 5: 'lg:grid-cols-5' };
+
+const TILE_COLOR = { brand: 'var(--brand-2)', ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--bad)', info: 'var(--info)', profit: 'var(--c-profit)', neutral: 'var(--ink-2)' };
+
+/**
+ * Single headline number card: icon tile, label, big value and a trend footer.
+ * `dark` fills the icon solid brand for one emphasised card in a row.
+ */
+export function StatCard({ label, value, icon: Icon, footer, to, dark, iconTone = 'brand' }) {
+  const body = (
+    <>
+      <div className="mb-3 flex items-center justify-between">
+        <span className={cn('tile', dark ? 'tile-brand' : `tile-${iconTone}`)}>{Icon && <Icon size={18} />}</span>
+        {to && (
+          <span className="grid size-7 place-items-center rounded-full border border-line text-ink-3 transition-colors group-hover:border-brand/40 group-hover:text-brand-ink">
+            <ArrowUpRight size={14} />
+          </span>
+        )}
+      </div>
+      <div className="text-[13px] font-medium text-ink-2">{label}</div>
+      <div className="tnum mt-1 truncate text-[22px] font-bold tracking-[-0.03em] sm:text-[24px]">{value}</div>
+      {footer && <div className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-ink-3">{footer}</div>}
+    </>
+  );
+  const cls = cn('card group flex min-w-0 flex-col p-4 text-left sm:p-[18px]', to && 'card-lift cursor-pointer');
+  return to ? (
+    <Link to={to} className={cls}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
   );
 }
 

@@ -55,10 +55,11 @@ function AddToCartButton({ theme, disabled }) {
   return (
     <span
       aria-hidden="true"
-      className="grid size-9 flex-none place-items-center rounded-[10px] text-white shadow-sm transition-transform duration-150 group-hover:scale-105 group-active:scale-95"
+      className="inline-flex h-9 flex-none items-center gap-1.5 rounded-[11px] px-3 text-[13px] font-semibold text-white shadow-[0_6px_14px_-8px_currentColor] transition-all duration-150 group-hover:brightness-110 group-active:scale-95"
       style={{ background: disabled ? 'var(--ink-3)' : theme.accent }}
     >
-      <ShoppingCart size={16} strokeWidth={2.2} />
+      <ShoppingCart size={14} strokeWidth={2.2} />
+      Add
     </span>
   );
 }
@@ -74,8 +75,8 @@ export function ProductCard({ product, inCart, onAdd }) {
       onClick={() => onAdd(product)}
       aria-label={`Add ${product.name}`}
       className={cn(
-        'group flex flex-col gap-3 rounded-[15px] border border-line bg-surface p-3 text-left shadow-card transition-[border-color,box-shadow,transform] duration-200',
-        'hover:-translate-y-0.5 hover:border-line-2 hover:shadow-pop active:scale-[0.98]',
+        'group flex flex-col gap-3 rounded-[18px] border border-line bg-surface p-3 text-left shadow-card transition-[border-color,box-shadow,transform] duration-200',
+        'hover:-translate-y-0.5 hover:border-brand/20 hover:shadow-[0_18px_32px_-18px_rgba(4,120,87,0.35)] active:scale-[0.98]',
         'disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-card'
       )}
     >

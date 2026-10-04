@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Receipt, Search } from '../../components/icons.js';
+import { ArrowUpRight, CalendarDays, Coins, Package, Plus, Receipt, Search, SlidersHorizontal, TrendingUp, Wallet } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
-import { Card, MiniStat } from '../../components/ui/Card.jsx';
+import { Card, StatBar } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Badge, PaymentTag, SaleStatusBadge } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { Select } from '../../components/ui/Form.jsx';
-import { Avatar } from '../../components/ui/Media.jsx';
+import { Avatar, ProductThumb } from '../../components/ui/Media.jsx';
 import { LogSaleModal } from '../../components/modals/SaleModals.jsx';
 import { useApi, useDebounce } from '../../hooks/useApi.js';
 import { salesService, staffService } from '../../services/index.js';
-import { money, num, shortDateTime } from '../../utils/format.js';
+import { initials, money, num, shortDateTime } from '../../utils/format.js';
 import { cn } from '../../utils/cn.js';
 
 export function itemsSummary(s) {
@@ -59,38 +59,42 @@ export default function Sales() {
           </Button>
         }
       />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MiniStat label="Sales" value={num(t.count)} />
-        <MiniStat label="Revenue" value={money(t.revenue)} />
-        <MiniStat label="Cost" value={money(t.cost)} />
-        <MiniStat label="Profit" value={money(t.profit)} tone="ok" />
-      </div>
-      <div className="flex flex-wrap items-center gap-2.5">
-        <label className="relative w-full sm:w-auto sm:max-w-[300px] sm:flex-1">
-          <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
-          <input className="input pl-9" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Receipt, customer or product" aria-label="Search receipt, customer or product" />
-        </label>
-        {[
-          ['range', 'Date', [['today', 'Today'], ['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['month', 'This month'], ['all', 'All time']]],
-          ['staffId', 'Staff', [['', 'All staff'], ...(staff.data || []).map((u) => [u.id, u.name])]],
-          ['paymentMethod', 'Payment', [['', 'All payments'], ['CASH', 'Cash'], ['POS', 'POS'], ['TRANSFER', 'Transfer'], ['CREDIT', 'Credit'], ['PART', 'Part payment']]],
-          ['status', 'Status', [['', 'All statuses'], ['COMPLETED', 'Completed'], ['PARTIALLY_RETURNED', 'Partially returned'], ['RETURNED', 'Returned'], ['REFUNDED', 'Refunded'], ['VOIDED', 'Voided']]],
-        ].map(([key, label, opts]) => (
-          <Select key={key} aria-label={label} value={f[key]} onChange={(e) => set({ [key]: e.target.value })} className="w-auto min-w-[140px] flex-1 sm:flex-none">
-            {opts.map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </Select>
-        ))}
-      </div>
+      <StatBar
+        items={[
+          { key: 'count', label: 'Sales', value: num(t.count), icon: Receipt, iconTone: 'brand' },
+          { key: 'rev', label: 'Revenue', value: money(t.revenue), icon: Wallet, iconTone: 'info' },
+          { key: 'cost', label: 'Cost of goods', value: money(t.cost), icon: Package, iconTone: 'neutral' },
+          { key: 'profit', label: 'Profit', value: money(t.profit), icon: TrendingUp, iconTone: 'ok' },
+        ]}
+      />
+      <Card className="p-2.5 sm:p-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <label className="relative w-full sm:max-w-[320px] sm:flex-1">
+            <Search size={16} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3" />
+            <input className="input h-10 border-transparent bg-surface-2 pl-10 focus:bg-surface" value={f.q} onChange={(e) => set({ q: e.target.value })} placeholder="Receipt, customer or product" aria-label="Search receipt, customer or product" />
+          </label>
+          {[
+            ['range', 'Date', CalendarDays, [['today', 'Today'], ['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['month', 'This month'], ['all', 'All time']]],
+            ['staffId', 'Staff', SlidersHorizontal, [['', 'All staff'], ...(staff.data || []).map((u) => [u.id, u.name])]],
+            ['paymentMethod', 'Payment', Coins, [['', 'All payments'], ['CASH', 'Cash'], ['POS', 'POS'], ['TRANSFER', 'Transfer'], ['CREDIT', 'Credit'], ['PART', 'Part payment']]],
+            ['status', 'Status', SlidersHorizontal, [['', 'All statuses'], ['COMPLETED', 'Completed'], ['PARTIALLY_RETURNED', 'Partially returned'], ['RETURNED', 'Returned'], ['REFUNDED', 'Refunded'], ['VOIDED', 'Voided']]],
+          ].map(([key, label, , opts]) => (
+            <Select key={key} aria-label={label} value={f[key]} onChange={(e) => set({ [key]: e.target.value })} className="h-10 w-auto min-w-[150px] flex-1 border-transparent bg-surface-2 sm:flex-none">
+              {opts.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+          ))}
+        </div>
+      </Card>
 
-      <Card flush>
+      <Card flush className="overflow-hidden">
         {data.items.length ? (
           <>
             <div className="overflow-x-auto">
-              <table className="table min-w-[980px]">
+              <table className="table min-w-[900px]">
                 <thead>
                   <tr>
                     <th>Receipt</th>
@@ -105,27 +109,37 @@ export default function Sales() {
                 </thead>
                 <tbody className={loading ? 'opacity-60' : ''}>
                   {data.items.map((s) => (
-                    <tr key={s.id} className="row-link" onClick={() => navigate(`/admin/sales/${s.id}`)}>
+                    <tr key={s.id} className="row-link group" onClick={() => navigate(`/admin/sales/${s.id}`)}>
                       <td>
                         <b className="tnum block font-semibold">{s.receiptNumber}</b>
-                        <span className="flex flex-wrap gap-1.5">
+                        <span className="mt-0.5 flex flex-wrap gap-1.5">
                           {s.status !== 'COMPLETED' && <SaleStatusBadge status={s.status} />}
                           {s.totalDiscount > 0 && <Badge tone="warn">Discounted</Badge>}
                         </span>
                       </td>
                       <td>
                         {s.customer ? (
-                          <>
-                            <b className="block font-medium">{s.customer.name}</b>
-                            <small className="tnum text-[12px] text-ink-3">{s.customer.phone}</small>
-                          </>
+                          <span className="flex items-center gap-2.5">
+                            <span className="grid size-8 flex-none place-items-center rounded-full bg-brand-soft text-[11.5px] font-bold text-brand-ink">{initials(s.customer.name)}</span>
+                            <span className="min-w-0">
+                              <b className="block font-medium">{s.customer.name}</b>
+                              <small className="tnum text-[12px] text-ink-3">{s.customer.phone}</small>
+                            </span>
+                          </span>
                         ) : (
                           <span className="text-ink-3">Walk-in</span>
                         )}
                       </td>
-                      <td>{itemsSummary(s)}</td>
+                      <td>
+                        <span className="flex items-center gap-2.5">
+                          <ProductThumb product={{ name: s.items[0]?.variantName }} size={28} />
+                          <span>{itemsSummary(s)}</span>
+                        </span>
+                      </td>
                       <td className="num font-semibold">{money(s.netTotal)}</td>
-                      <td className={cn('num', s.profit >= 0 ? 'text-ok' : 'text-bad')}>{money(s.profit)}</td>
+                      <td className="num">
+                        <span className={cn('inline-flex rounded-full px-2 py-0.5 text-[12.5px] font-semibold tnum', s.profit >= 0 ? 'bg-ok-soft text-ok' : 'bg-bad-soft text-bad')}>{money(s.profit)}</span>
+                      </td>
                       <td>
                         <PaymentTag method={s.paymentMethod} />
                       </td>
@@ -135,14 +149,19 @@ export default function Sales() {
                           {s.staff?.name.split(' ')[0]}
                         </span>
                       </td>
-                      <td className="text-ink-3">{shortDateTime(s.createdAt)}</td>
+                      <td className="text-ink-3">
+                        <span className="flex items-center justify-between gap-2">
+                          {shortDateTime(s.createdAt)}
+                          <ArrowUpRight size={15} className="text-ink-3 opacity-0 transition-opacity group-hover:opacity-100" />
+                        </span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             {data.pages > 1 && (
-              <div className="flex items-center justify-between gap-3 border-t border-line-2 px-5 py-3 text-[13px] text-ink-3">
+              <div className="flex items-center justify-between gap-3 border-t border-line-2 bg-surface-2/60 px-5 py-3 text-[13px] text-ink-3">
                 <span>
                   Page {data.page} of {data.pages} · {num(data.total)} sales
                 </span>
@@ -158,7 +177,7 @@ export default function Sales() {
             )}
           </>
         ) : (
-          <EmptyState icon={Receipt} title="No sales match" text="Your sales will appear here once a transaction matches these filters." action={<Button onClick={() => set({ ...EMPTY, range: 'all' })}>Clear filters</Button>} />
+          <EmptyState icon={Receipt} title="No sales match these filters" text="Try a wider date range, or clear the filters to see every sale." action={<Button onClick={() => set({ ...EMPTY, range: 'all' })}>Clear filters</Button>} />
         )}
       </Card>
       <LogSaleModal open={logging} onClose={() => setLogging(false)} onDone={reload} />
