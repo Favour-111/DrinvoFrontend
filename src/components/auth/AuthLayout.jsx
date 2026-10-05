@@ -20,7 +20,7 @@ export function AuthLayout({ hero, children }) {
 
 export function AuthHero({ eyebrow, title, highlight, text, features = [], footer }) {
   return (
-    <section className="relative isolate flex min-h-[520px] flex-col justify-between overflow-hidden bg-hero px-6 py-7 text-on-hero sm:px-10 lg:min-h-dvh lg:px-14 lg:py-10">
+    <section className="relative isolate flex min-h-0 flex-col justify-between overflow-hidden bg-hero px-6 py-5 text-on-hero sm:px-10 lg:min-h-dvh lg:px-14 lg:py-10">
       <img
         src={heroImage}
         alt=""
@@ -43,7 +43,7 @@ export function AuthHero({ eyebrow, title, highlight, text, features = [], foote
         </span>
       </div>
 
-      <div className="mt-10 max-w-[480px] lg:mt-0">
+      <div className="mt-10 hidden max-w-[480px] lg:mt-0 lg:block">
         {eyebrow && <p className="text-[12.5px] font-semibold tracking-[0.18em] text-brand-3 uppercase">{eyebrow}</p>}
         <h1 className="mt-3 text-[34px] leading-[1.06] font-extrabold tracking-[-0.035em] sm:text-[44px] lg:text-[50px]">
           {title}
