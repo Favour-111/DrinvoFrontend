@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -367,6 +367,7 @@ export default function ProductForm() {
   const existing = useApi(() => (edit ? productService.get(id) : Promise.resolve(null)), [id]);
   const categories = useApi(() => productService.categories(), []);
   const suppliers = useApi(() => supplierService.list(), []);
+  const catalog = useApi(() => productService.list(), []);
 
   const form = useForm({
     resolver: zodResolver(schema),
@@ -379,6 +380,23 @@ export default function ProductForm() {
   }, [existing.data, form]);
 
   const values = form.watch();
+
+  // De-duplicated against the current typed name as the admin types it, so a near-identical
+  // product (e.g. retyping "Coca-Cola" as a new entry instead of adding a size to the existing
+  // one) gets caught before it creates a confusing duplicate in the catalog.
+  const catalogProducts = useMemo(() => {
+    const seen = new Map();
+    for (const row of catalog.data?.items || []) {
+      if (!seen.has(row.productId)) seen.set(row.productId, { id: row.productId, name: row.productName, brand: row.brand, category: row.category });
+    }
+    return [...seen.values()];
+  }, [catalog.data]);
+  const typedName = values.name.trim().toLowerCase();
+  const nameMatches = useMemo(() => {
+    if (typedName.length < 2) return [];
+    return catalogProducts.filter((p) => p.id !== id && p.name.toLowerCase().includes(typedName));
+  }, [catalogProducts, typedName, id]);
+  const exactNameMatch = nameMatches.find((p) => p.name.trim().toLowerCase() === typedName);
 
   const onImage = async (e) => {
     const file = e.target.files?.[0];
@@ -437,6 +455,35 @@ export default function ProductForm() {
                 <FormField label="Product name" name="name" register={form.register} errors={form.formState.errors} placeholder="e.g. Coca-Cola" />
                 <FormField label="Brand" name="brand" register={form.register} errors={form.formState.errors} placeholder="e.g. Nigerian Bottling Company" />
               </div>
+              {nameMatches.length > 0 && (
+                <div className={cn('flex items-start gap-2.5 rounded-[14px] border px-3.5 py-3 text-[13px]', exactNameMatch ? 'border-bad/25 bg-bad-soft' : 'border-warn/25 bg-warn-soft')}>
+                  <AlertTriangle size={16} className={cn('mt-0.5 flex-none', exactNameMatch ? 'text-bad' : 'text-warn')} />
+                  <div className="min-w-0 flex-1">
+                    <b className={cn('block font-semibold', exactNameMatch ? 'text-bad' : 'text-warn')}>
+                      {exactNameMatch ? 'A product with this exact name already exists' : 'Similar products already exist'}
+                    </b>
+                    <p className="mt-0.5 text-ink-2">
+                      {exactNameMatch
+                        ? 'Adding this as a new product will create a duplicate. Open it below and add a size instead, if that’s what you meant.'
+                        : 'Check these aren’t the same drink before adding it as new.'}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {nameMatches.slice(0, 5).map((p) => (
+                        <Link
+                          key={p.id}
+                          to={`/admin/products/${p.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1 text-[12.5px] font-medium text-ink-2 shadow-[inset_0_0_0_1px_transparent] transition-colors hover:border-brand/40 hover:text-brand-ink"
+                        >
+                          {p.name}
+                          {p.brand ? <span className="text-ink-3">· {p.brand}</span> : null}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <Field label="Category" htmlFor="pf-category" error={form.formState.errors.category?.message}>
                   <Combobox
