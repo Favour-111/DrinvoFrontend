@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertTriangle, Archive, Bottle, Eye, Layers, MessageCircle, Pencil, Plus, RotateCcw, Search, Wallet } from '../../components/icons.js';
+import { AlertTriangle, Bottle, Eye, Layers, MessageCircle, Pencil, Plus, RotateCcw, Search, Trash2, Wallet } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, StatBar } from '../../components/ui/Card.jsx';
 import { ButtonLink, Button, IconButton } from '../../components/ui/Button.jsx';
@@ -167,7 +167,7 @@ export default function Products() {
                         {v.status === 'archived' ? (
                           <IconButton size={32} icon={RotateCcw} label="Restore" onClick={() => setArchived(v, false).catch(() => {})} />
                         ) : (
-                          <IconButton size={32} icon={Archive} label="Archive" onClick={() => setArchiving(v)} />
+                          <IconButton size={32} icon={Trash2} label="Delete" onClick={() => setArchiving(v)} className="hover:border-bad/40 hover:bg-bad-soft hover:text-bad" />
                         )}
                       </div>
                     </td>
@@ -211,9 +211,9 @@ export default function Products() {
         open={Boolean(archiving)}
         onClose={() => setArchiving(null)}
         onConfirm={() => setArchived(archiving, true)}
-        title={`Archive ${archiving?.productName}?`}
-        confirmLabel="Archive product"
-        icon={Archive}
+        title={`Delete ${archiving?.productName}?`}
+        confirmLabel="Delete product"
+        icon={Trash2}
       >
         <p>Every size of this product will be hidden from staff and can no longer be sold. Its stock stays recorded.</p>
         <p>Sales history is kept. You can restore it later from the Archived filter.</p>

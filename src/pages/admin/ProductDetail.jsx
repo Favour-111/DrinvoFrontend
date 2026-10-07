@@ -37,7 +37,7 @@ export default function ProductDetail() {
 
       <Card className="relative overflow-hidden p-0">
         <span className="blob -top-24 -right-16 size-72 opacity-40" aria-hidden="true" />
-        <div className="flex flex-wrap gap-2 sm:absolute sm:top-5 sm:right-5">
+        <div className="relative z-10 flex flex-wrap gap-2 sm:absolute sm:top-5 sm:right-5">
           <Button icon={SlidersHorizontal} onClick={() => setModal({ type: 'adjust', variantId: first })}>
             Adjust stock
           </Button>
