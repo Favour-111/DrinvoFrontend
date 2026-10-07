@@ -67,8 +67,8 @@ const newVariant = () => ({
   costPrice: '',
   sellingPrice: '',
   minimumSellingPrice: '',
-  pack: { on: true, n: 6, price: '' },
-  carton: { on: true, n: 24, price: '' },
+  pack: { on: false, n: 6, price: '' },
+  carton: { on: true, n: 12, price: '' },
   crate: { on: false, n: 24, price: '' },
   openBottle: '',
   openPack: '',
@@ -97,7 +97,7 @@ function toForm(product, variants) {
       sellingPrice: v.sellingPrice,
       minimumSellingPrice: v.minimumSellingPrice || '',
       pack: { on: v.unitConversions.pack > 0, n: v.unitConversions.pack || 6, price: v.unitPrices.pack || '' },
-      carton: { on: v.unitConversions.carton > 0, n: v.unitConversions.carton || 24, price: v.unitPrices.carton || '' },
+      carton: { on: v.unitConversions.carton > 0, n: v.unitConversions.carton || 12, price: v.unitPrices.carton || '' },
       crate: { on: v.unitConversions.crate > 0, n: v.unitConversions.crate || 24, price: v.unitPrices.crate || '' },
       openBottle: '',
       openPack: '',
@@ -212,7 +212,7 @@ function BulkPriceHelper({ form, path, targetField, units }) {
 }
 
 function VariantBlock({ index, form, onRemove, productName }) {
-  const { register, watch, formState } = form;
+  const { register, watch, setValue, formState } = form;
   const v = watch(`variants.${index}`);
   const err = formState.errors.variants?.[index];
   const units = ['bottle', ...LARGE.filter((u) => v[u]?.on)];
@@ -231,7 +231,24 @@ function VariantBlock({ index, form, onRemove, productName }) {
         )}
       </div>
       <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        <FormField label="Size" name={`${p}.size`} register={register} errors={formState.errors} placeholder="e.g. 50cl" />
+        <div>
+          <FormField label="Size" name={`${p}.size`} register={register} errors={formState.errors} placeholder="e.g. 50cl" />
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {['75cl', '1L', '37.5cl'].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setValue(`${p}.size`, s, { shouldValidate: true, shouldDirty: true })}
+                className={cn(
+                  'h-6 rounded-full border px-2.5 text-[11.5px] font-medium transition-colors',
+                  v.size === s ? 'border-brand bg-brand-soft text-brand-ink' : 'border-line bg-surface text-ink-3 hover:border-ink-3/30 hover:text-ink'
+                )}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
         <div>
           <FormField label="Cost price per bottle" name={`${p}.costPrice`} as="money" register={register} errors={formState.errors} placeholder="650" />
           <BulkPriceHelper form={form} path={p} targetField="costPrice" units={bulkUnits} />
