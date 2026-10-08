@@ -213,6 +213,13 @@
     background-image: radial-gradient(900px 520px at 100% -8%, var(--blob-a), transparent 62%), radial-gradient(760px 480px at -12% 4%, var(--blob-b), transparent 60%);
     background-attachment: fixed;
     background-repeat: no-repeat;
+    /* A flex/grid child with no explicit width defaults to its content's natural ("min-content")
+       size, not the space it's given — on a narrow phone, one unwrapped line (a pill row, a long
+       number) can silently force its column, and the whole page, wider than the viewport. This
+       is a last-resort backstop: it clips that overflow instead of letting it push the layout
+       sideways. Elements that are meant to scroll horizontally (Chips, tables) keep working,
+       since overflow-x:auto on a descendant still scrolls within itself. */
+    overflow-x: hidden;
   }
   body {
     color: var(--ink);
@@ -221,6 +228,7 @@
     -webkit-font-smoothing: antialiased;
     background: transparent;
     min-height: 100dvh;
+    overflow-x: hidden;
   }
   h1,
   h2,

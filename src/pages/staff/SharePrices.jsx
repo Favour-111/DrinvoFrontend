@@ -143,8 +143,8 @@ export default function SharePrices() {
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-3">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="flex min-w-0 flex-col gap-3">
           <label className="relative">
             <Search size={17} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search drinks, e.g. coca" aria-label="Search products" className="input h-12 rounded-[14px] pl-10 text-[15px]" />
@@ -179,7 +179,7 @@ export default function SharePrices() {
           </Card>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           <Card>
             <div className="mb-2.5 flex items-center justify-between">
               <span className="label">Selected</span>

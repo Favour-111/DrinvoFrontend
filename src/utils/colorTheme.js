@@ -1,4 +1,5 @@
 /** Generates a soft pastel card theme from a product photo's dominant colour, or from its stored accent colour when there is no photo. Results are cached per image URL for the life of the tab. */
+import { api } from '../services/api.js';
 
 const cache = new Map();
 
@@ -43,7 +44,9 @@ export function themeFromColor(hex) {
   return themeFromHsl(rgbToHsl(r, g, b));
 }
 
-function sampleImage(url) {
+/** Loads `src` and averages its pixels into a theme. Resolves `null` (never rejects) on any
+ * failure, including a tainted canvas, so the caller can decide what to try next. */
+function loadAndSample(src) {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -79,16 +82,27 @@ function sampleImage(url) {
             n++;
           }
         }
-        if (!n) return resolve(NEUTRAL);
+        if (!n) return resolve(null);
         resolve(themeFromHsl(rgbToHsl(r / n, g / n, b / n)));
       } catch {
-        // Cross-origin image without CORS headers taints the canvas — fall back quietly.
-        resolve(NEUTRAL);
+        // Cross-origin image without CORS headers from its own host taints the canvas —
+        // the caller retries this same photo through our own origin instead.
+        resolve(null);
       }
     };
-    img.onerror = () => resolve(NEUTRAL);
-    img.src = url;
+    img.onerror = () => resolve(null);
+    img.src = src;
   });
+}
+
+/** Most photos load and sample directly. If that fails — almost always a third-party host with
+ * no CORS headers tainting the canvas — retry once through our own image proxy, which re-serves
+ * the same bytes from an origin the browser already trusts for pixel reads. */
+async function sampleImage(url) {
+  const direct = await loadAndSample(url);
+  if (direct) return direct;
+  const proxied = await loadAndSample(`${api.defaults.baseURL}/image-proxy?src=${encodeURIComponent(url)}`);
+  return proxied || NEUTRAL;
 }
 
 /** Resolves { bg, accent, ok } for a product image, memoised per URL for this tab. */
