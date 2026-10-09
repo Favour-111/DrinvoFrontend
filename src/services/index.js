@@ -69,6 +69,7 @@ export const salesService = {
   list: (params) => get('/sales', clean(params)),
   get: (id) => get(`/sales/${id}`),
   create: (body) => post('/sales', body),
+  edit: (id, body) => api.put(`/sales/${id}`, body).then((r) => r.data),
   processReturn: (id, body) => post(`/sales/${id}/return`, body),
   refund: (id, body) => post(`/sales/${id}/refund`, body),
   void: (id, body) => post(`/sales/${id}/void`, body),

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Ban, Package, Percent, Receipt as ReceiptIcon, ShoppingBag, Undo2, Wallet } from '../../components/icons.js';
+import { Ban, Package, Pencil, Percent, Receipt as ReceiptIcon, ShoppingBag, Undo2, Wallet } from '../../components/icons.js';
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader, DetailList, StatBar } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
@@ -8,7 +8,7 @@ import { Badge, PaymentTag, SaleStatusBadge } from '../../components/ui/Badge.js
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { Receipt, ReceiptActions } from '../../components/Receipt.jsx';
-import { RefundModal, ReturnModal, VoidModal } from '../../components/modals/SaleModals.jsx';
+import { LogSaleModal, RefundModal, ReturnModal, VoidModal } from '../../components/modals/SaleModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { salesService } from '../../services/index.js';
 import { fmtDateTime, money, num, PAYMENT_LABEL, plural, shortDateTime } from '../../utils/format.js';
@@ -38,6 +38,11 @@ export default function SaleDetail() {
               <Button icon={Wallet} onClick={() => setModal('refund')} disabled={s.netTotal <= 0}>
                 Refund
               </Button>
+              {canVoid && (
+                <Button icon={Pencil} onClick={() => setModal('edit')}>
+                  Edit
+                </Button>
+              )}
               {canVoid && (
                 <Button variant="danger-soft" icon={Ban} onClick={() => setModal('void')}>
                   Void
@@ -219,6 +224,7 @@ export default function SaleDetail() {
 
       <ReturnModal open={modal === 'return'} onClose={() => setModal(null)} sale={s} onDone={reload} />
       <RefundModal open={modal === 'refund'} onClose={() => setModal(null)} sale={s} onDone={reload} />
+      <LogSaleModal open={modal === 'edit'} onClose={() => setModal(null)} sale={s} onDone={reload} />
       <VoidModal open={modal === 'void'} onClose={() => setModal(null)} sale={s} onDone={reload} />
     </Page>
   );

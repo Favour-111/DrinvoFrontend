@@ -336,7 +336,8 @@ function CustomerSearch({ value, onChange }) {
  * migrated from paper records. Deducts stock and records payment exactly like a normal sale,
  * just dated to when it actually happened. Always acts on the currently active shop (switch
  * shops with the picker in the header first to log one for a different shop). */
-export function LogSaleModal({ open, onClose, onDone }) {
+export function LogSaleModal({ open, onClose, onDone, sale = null }) {
+  const editing = Boolean(sale);
   const { shop } = useAuth();
   const toast = useToast();
   const [items, setItems] = useState(null);
@@ -356,16 +357,17 @@ export function LogSaleModal({ open, onClose, onDone }) {
 
   useEffect(() => {
     if (!open) return;
-    setDate(isoDate());
-    setLines([]);
+    setDate(sale ? isoDate(sale.createdAt) : isoDate());
+    // Editing starts from the sale as it was rung up; each line keeps its exact total.
+    setLines(sale ? sale.items.map((i) => ({ variantId: i.variantId, unit: i.unit, quantity: i.quantity, name: i.variantName, unitPrice: i.unitPrice, lineTotal: i.lineTotal, total: i.lineTotal })) : []);
     setDraftVariantId('');
     setDraftCounts({});
     setDraftPrices({});
     setDraftTotals({});
-    setPaymentMethod('CASH');
-    setAmountPaid('');
-    setPaidWith('CASH');
-    setCustomer(null);
+    setPaymentMethod(sale ? sale.paymentMethod : 'CASH');
+    setAmountPaid(sale?.paymentMethod === 'PART' ? String(sale.amountPaid) : '');
+    setPaidWith(sale?.paidWith || 'CASH');
+    setCustomer(sale?.customer ? { id: sale.customer.id, name: sale.customer.name, phone: sale.customer.phone } : null);
     setServerError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -392,6 +394,9 @@ export function LogSaleModal({ open, onClose, onDone }) {
   }, [open]);
 
   const v = items?.find((i) => i.variantId === draftVariantId);
+  // The sale being edited is still holding its own stock, which is freed when the edit saves.
+  const ownBase = sale ? sale.items.filter((i) => i.variantId === draftVariantId).reduce((n, i) => n + i.baseQuantity, 0) : 0;
+  const availableBase = v ? v.quantity + ownBase : 0;
   const draftUnits = v ? availableUnits(v) : [];
   // One quantity + optional price-override per unit the product is sold in, so e.g. 3 cartons
   // and 3 loose bottles of the same drink can both be entered at once instead of needing two
@@ -410,7 +415,7 @@ export function LogSaleModal({ open, onClose, onDone }) {
   const draftBase = draftRows.reduce((s, r) => s + r.quantity * r.conversion, 0);
   const draftHasRows = draftRows.some((r) => r.quantity > 0);
   const draftHasError = draftRows.some((r) => r.quantity > 0 && (r.belowMin || r.price < 0));
-  const draftValid = Boolean(v && draftHasRows && draftBase > 0 && draftBase <= v.quantity && !draftHasError);
+  const draftValid = Boolean(v && draftHasRows && draftBase > 0 && draftBase <= availableBase && !draftHasError);
 
   const onDraftVariant = (id) => {
     setDraftVariantId(id);
@@ -443,14 +448,16 @@ export function LogSaleModal({ open, onClose, onDone }) {
     setSubmitting(true);
     setServerError('');
     try {
-      await salesService.create({
+      const body = {
         items: lines.map(({ variantId, unit, quantity, price, total }) => ({ variantId, unit, quantity, ...(total != null ? { lineTotal: total } : price != null ? { price } : {}) })),
         paymentMethod,
         ...(customer.id ? { customerId: customer.id } : { customer: { name: customer.name, phone: customer.phone } }),
         ...(isPart ? { amountPaid: paid, paidWith } : {}),
-        ...(date !== isoDate() ? { backdatedAt: new Date(`${date}T12:00:00`).toISOString() } : {}),
-      });
-      toast.success('Sale logged.');
+        ...((editing ? date !== isoDate(sale.createdAt) : date !== isoDate()) ? { backdatedAt: new Date(`${date}T12:00:00`).toISOString() } : {}),
+      };
+      if (editing) await salesService.edit(sale.id, body);
+      else await salesService.create(body);
+      toast.success(editing ? 'Sale updated. Everything has been recalculated.' : 'Sale logged.');
       onDone?.();
       onClose();
     } catch (err) {
@@ -465,13 +472,13 @@ export function LogSaleModal({ open, onClose, onDone }) {
       open={open}
       onClose={onClose}
       size="lg"
-      title="Log a Sale" icon={Receipt} tone="brand"
-      description={shop ? `For ${shop.name}. Switch shops with the picker in the header first to log one for a different shop.` : undefined}
+      title={editing ? `Edit ${sale.receiptNumber}` : 'Log a Sale'} icon={Receipt} tone="brand"
+      description={editing ? 'Change anything and save. Stock, payments, credit, cost and profit are recalculated from the new details.' : shop ? `For ${shop.name}. Switch shops with the picker in the header first to log one for a different shop.` : undefined}
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="primary" icon={Check} onClick={submit} loading={submitting} disabled={blocked}>
-            Log Sale{lines.length ? ` · ${money(total)}` : ''}
+            {editing ? 'Save changes' : 'Log Sale'}{lines.length ? ` · ${money(total)}` : ''}
           </Button>
         </>
       }
@@ -553,7 +560,7 @@ export function LogSaleModal({ open, onClose, onDone }) {
           {v && (
             <p className="hint mt-2">
               Available: {describeStock(v)}
-              {draftBase > v.quantity && ' · Not enough stock'}
+              {draftBase > availableBase && ' · Not enough stock'}
             </p>
           )}
           {items && !items.length && <p className="hint mt-2">{shop?.name} has no products in stock yet.</p>}
