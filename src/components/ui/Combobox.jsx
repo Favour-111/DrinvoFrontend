@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, Search } from '../icons.js';
+import { Check, ChevronDown } from '../icons.js';
 import { cn } from '../../utils/cn.js';
 
 /**
- * A searchable dropdown: click to open, type to filter, click or Enter to pick.
+ * A searchable dropdown: type in the field to filter, click or Enter to pick.
  * The popup renders in a portal (not inside the trigger's DOM position) so it
  * isn't clipped by a Modal's scrolling container, the way an absolutely
  * positioned child of `overflow-auto` content would be.
@@ -18,7 +18,6 @@ export function Combobox({ id, value, onChange, options, placeholder = 'Searchâ€
   const [rect, setRect] = useState(null);
   const triggerRef = useRef(null);
   const popupRef = useRef(null);
-  const searchRef = useRef(null);
 
   const selected = options.find((o) => o.value === value) || null;
 
@@ -39,20 +38,24 @@ export function Combobox({ id, value, onChange, options, placeholder = 'Searchâ€
     return [...map.entries()];
   }, [filtered]);
 
-  const close = () => setOpen(false);
+  const close = () => {
+    setOpen(false);
+    setQ('');
+  };
   const openPopup = () => {
     if (disabled) return;
     setRect(triggerRef.current.getBoundingClientRect());
-    setQ('');
     setActive(0);
     setOpen(true);
   };
 
   useEffect(() => {
     if (!open) return undefined;
-    const t = setTimeout(() => searchRef.current?.focus(), 10);
     // Repositioning on scroll is unnecessary complexity for a short-lived popup â€” closing is simpler and avoids a stale, floating panel.
-    const onScroll = () => close();
+    const onScroll = (e) => {
+      if (popupRef.current?.contains(e.target)) return;
+      close();
+    };
     const onClick = (e) => {
       if (popupRef.current?.contains(e.target) || triggerRef.current?.contains(e.target)) return;
       close();
@@ -61,7 +64,6 @@ export function Combobox({ id, value, onChange, options, placeholder = 'Searchâ€
     window.addEventListener('resize', onScroll);
     document.addEventListener('mousedown', onClick);
     return () => {
-      clearTimeout(t);
       window.removeEventListener('scroll', onScroll, true);
       window.removeEventListener('resize', onScroll);
       document.removeEventListener('mousedown', onClick);
@@ -71,11 +73,15 @@ export function Combobox({ id, value, onChange, options, placeholder = 'Searchâ€
   const pick = (opt) => {
     if (opt.disabled) return;
     onChange(opt.value);
+    setQ('');
     close();
   };
 
   const onKeyDown = (e) => {
     if (e.key === 'Escape') {
+      setQ('');
+      close();
+    } else if (e.key === 'Tab') {
       close();
     } else if (e.key === 'Enter') {
       e.preventDefault();
@@ -91,20 +97,31 @@ export function Combobox({ id, value, onChange, options, placeholder = 'Searchâ€
 
   return (
     <>
-      <button
-        type="button"
-        id={id}
-        ref={triggerRef}
-        disabled={disabled}
-        onClick={() => (open ? close() : openPopup())}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-invalid={error ? 'true' : undefined}
-        className={cn('input flex items-center justify-between gap-2 text-left disabled:opacity-50', !selected && 'text-ink-3', className)}
-      >
-        <span className="truncate">{selected ? selected.label : placeholder}</span>
-        <ChevronDown size={15} className="flex-none text-ink-3" />
-      </button>
+      <div className="relative">
+        <input
+          type="text"
+          id={id}
+          ref={triggerRef}
+          disabled={disabled}
+          role="combobox"
+          autoComplete="off"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-invalid={error ? 'true' : undefined}
+          value={open ? q : selected ? selected.label : ''}
+          placeholder={open && selected ? selected.label : placeholder}
+          onFocus={openPopup}
+          onClick={() => !open && openPopup()}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setActive(0);
+            if (!open) openPopup();
+          }}
+          onKeyDown={onKeyDown}
+          className={cn('input truncate pr-9 disabled:opacity-50', className)}
+        />
+        <ChevronDown size={15} className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-ink-3" />
+      </div>
       {open &&
         rect &&
         createPortal(
@@ -112,23 +129,9 @@ export function Combobox({ id, value, onChange, options, placeholder = 'Searchâ€
             ref={popupRef}
             role="listbox"
             style={{ position: 'fixed', top: rect.bottom + 6, left: rect.left, width: Math.max(rect.width, 220), maxWidth: 'calc(100vw - 24px)' }}
+            onMouseDown={(e) => e.preventDefault()}
             className="animate-pop z-[200] flex max-h-72 flex-col overflow-hidden rounded-[14px] border border-line bg-surface shadow-pop"
           >
-            <label className="relative flex-none border-b border-line-2 p-2">
-              <Search size={14} className="pointer-events-none absolute top-1/2 left-5 -translate-y-1/2 text-ink-3" />
-              <input
-                ref={searchRef}
-                value={q}
-                onChange={(e) => {
-                  setQ(e.target.value);
-                  setActive(0);
-                }}
-                onKeyDown={onKeyDown}
-                placeholder={placeholder}
-                aria-label={placeholder}
-                className="input h-9 pl-8 text-[13.5px]"
-              />
-            </label>
             <div className="scrollbar-none overflow-y-auto py-1">
               {groups.length ? (
                 groups.map(([group, opts]) => (

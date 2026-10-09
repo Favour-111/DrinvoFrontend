@@ -346,6 +346,7 @@ export function LogSaleModal({ open, onClose, onDone }) {
   const [draftVariantId, setDraftVariantId] = useState('');
   const [draftCounts, setDraftCounts] = useState({}); // { unit: quantity string }
   const [draftPrices, setDraftPrices] = useState({}); // { unit: price-override string }
+  const [draftTotals, setDraftTotals] = useState({}); // { unit: line-total-override string }
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [amountPaid, setAmountPaid] = useState('');
   const [paidWith, setPaidWith] = useState('CASH');
@@ -360,6 +361,7 @@ export function LogSaleModal({ open, onClose, onDone }) {
     setDraftVariantId('');
     setDraftCounts({});
     setDraftPrices({});
+    setDraftTotals({});
     setPaymentMethod('CASH');
     setAmountPaid('');
     setPaidWith('CASH');
@@ -399,9 +401,11 @@ export function LogSaleModal({ open, onClose, onDone }) {
     const listPrice = priceFor(v, u);
     const minPrice = minimumFor(v, u);
     const raw = draftPrices[u];
-    const price = raw !== undefined && raw !== '' ? Number(raw) : listPrice;
+    const rawTotal = draftTotals[u];
+    const totalSet = rawTotal !== undefined && rawTotal !== '' && quantity > 0;
+    const price = totalSet ? Number(rawTotal) / quantity : raw !== undefined && raw !== '' ? Number(raw) : listPrice;
     const belowMin = quantity > 0 && minPrice > 0 && price < minPrice;
-    return { unit: u, quantity, conversion: conversionFor(v, u), listPrice, minPrice, price, belowMin, priceSet: raw !== undefined && raw !== '' };
+    return { unit: u, quantity, conversion: conversionFor(v, u), listPrice, minPrice, price, belowMin, priceSet: raw !== undefined && raw !== '', totalSet, lineTotal: totalSet ? Number(rawTotal) : price * quantity };
   });
   const draftBase = draftRows.reduce((s, r) => s + r.quantity * r.conversion, 0);
   const draftHasRows = draftRows.some((r) => r.quantity > 0);
@@ -412,16 +416,18 @@ export function LogSaleModal({ open, onClose, onDone }) {
     setDraftVariantId(id);
     setDraftCounts({});
     setDraftPrices({});
+    setDraftTotals({});
   };
 
   const addLine = () => {
     if (!draftValid) return;
     const newLines = draftRows
       .filter((r) => r.quantity > 0)
-      .map((r) => ({ variantId: v.variantId, unit: r.unit, quantity: r.quantity, name: v.name, unitPrice: r.price, lineTotal: r.price * r.quantity, ...(r.priceSet ? { price: r.price } : {}) }));
+      .map((r) => ({ variantId: v.variantId, unit: r.unit, quantity: r.quantity, name: v.name, unitPrice: r.price, lineTotal: r.lineTotal, ...(r.totalSet ? { total: r.lineTotal } : r.priceSet ? { price: r.price } : {}) }));
     setLines((ls) => [...ls, ...newLines]);
     setDraftCounts({});
     setDraftPrices({});
+    setDraftTotals({});
   };
   const removeLine = (i) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
@@ -438,7 +444,7 @@ export function LogSaleModal({ open, onClose, onDone }) {
     setServerError('');
     try {
       await salesService.create({
-        items: lines.map(({ variantId, unit, quantity, price }) => ({ variantId, unit, quantity, ...(price != null ? { price } : {}) })),
+        items: lines.map(({ variantId, unit, quantity, price, total }) => ({ variantId, unit, quantity, ...(total != null ? { lineTotal: total } : price != null ? { price } : {}) })),
         paymentMethod,
         ...(customer.id ? { customerId: customer.id } : { customer: { name: customer.name, phone: customer.phone } }),
         ...(isPart ? { amountPaid: paid, paidWith } : {}),
@@ -517,6 +523,16 @@ export function LogSaleModal({ open, onClose, onDone }) {
                           onChange={(e) => setDraftPrices((p) => ({ ...p, [r.unit]: e.target.value }))}
                           className="input h-8 text-center text-[12px]"
                           aria-label={`Price per ${r.unit}`}
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          inputMode="decimal"
+                          placeholder={r.quantity > 0 ? String(r.listPrice * r.quantity) : 'Total'}
+                          value={draftTotals[r.unit] ?? ''}
+                          onChange={(e) => setDraftTotals((t) => ({ ...t, [r.unit]: e.target.value }))}
+                          className="input mt-1.5 h-8 text-center text-[12px]"
+                          aria-label={`Total for ${r.unit}s`}
                         />
                         {r.belowMin && <p className="mt-1 text-[10.5px] font-semibold text-bad">Min {money(r.minPrice)}</p>}
                       </div>
