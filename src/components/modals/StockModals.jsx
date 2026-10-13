@@ -55,7 +55,7 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
   const [supplier, setSupplier] = useState('');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState([]); // { variantId, unit, quantity, costPerUnit, productName, name }
-  const [draft, setDraft] = useState({ variantId: '', unit: 'bottle', quantity: 10, costPerUnit: 0 });
+  const [draft, setDraft] = useState({ variantId: '', unit: 'bottle', qtys: {}, costPerUnit: 0 });
   const [serverError, setServerError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -68,27 +68,33 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
     setServerError('');
     if (first) {
       const u = bigUnit(first);
-      setDraft({ variantId: first.variantId, unit: u, quantity: 10, costPerUnit: Math.round(first.avgCost * conversionFor(first, u)) });
+      setDraft({ variantId: first.variantId, unit: u, qtys: { [u]: 10 }, costPerUnit: Math.round(first.avgCost * conversionFor(first, u)) });
     }
   }, [open, data, variantId, supplierId]);
 
   const v = data?.items.find((i) => i.variantId === draft.variantId);
-  const conv = v ? conversionFor(v, draft.unit) : 0;
-  const draftQty = Number(draft.quantity) || 0;
-  const draftBase = draftQty * conv;
+  // The cost is entered per the biggest unit (e.g. carton); smaller units are priced pro rata.
+  const units = v ? availableUnits(v) : [];
+  const costConv = v ? conversionFor(v, draft.unit) : 0;
+  const draftParts = units.map((u) => ({ unit: u, qty: Math.floor(Number(draft.qtys[u])) || 0, conv: conversionFor(v, u) })).filter((p) => p.qty > 0);
+  const draftBase = draftParts.reduce((s, p) => s + p.qty * p.conv, 0);
   const draftCost = Number(draft.costPerUnit) || 0;
   const draftValid = Boolean(v && draftBase > 0 && draftCost > 0);
 
   const onDraftVariant = (id) => {
     const nv = data.items.find((i) => i.variantId === id);
     const u = bigUnit(nv);
-    setDraft({ variantId: id, unit: u, quantity: draft.quantity || 10, costPerUnit: Math.round(nv.avgCost * conversionFor(nv, u)) });
+    setDraft({ variantId: id, unit: u, qtys: { [u]: 10 }, costPerUnit: Math.round(nv.avgCost * conversionFor(nv, u)) });
   };
-  const onDraftUnit = (u) => setDraft((d) => ({ ...d, unit: u, costPerUnit: Math.round(v.avgCost * conversionFor(v, u)) }));
+  const unitCost = (conv) => Math.round(((draftCost * conv) / costConv) * 100) / 100;
 
   const addLine = () => {
     if (!draftValid) return;
-    setLines((ls) => [...ls, { variantId: draft.variantId, unit: draft.unit, quantity: draftQty, costPerUnit: draftCost, productName: v.productName, name: v.name }]);
+    setLines((ls) => [
+      ...ls,
+      ...draftParts.map((p) => ({ variantId: draft.variantId, unit: p.unit, quantity: p.qty, costPerUnit: unitCost(p.conv), productName: v.productName, name: v.name })),
+    ]);
+    setDraft((d) => ({ ...d, qtys: {} }));
   };
   const removeLine = (i) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
@@ -120,7 +126,7 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
       onClose={onClose}
       size="lg"
       title="Restock" icon={Truck} tone="brand"
-      description="Add one or more lines — even different units of the same product, like 10 cartons and 4 bottles — then confirm together as one purchase."
+      description="Fill in each unit you received — e.g. 6 cartons and 4 bottles — add more products if needed, then confirm together as one purchase."
       footer={
         <>
           <Button onClick={onClose}>Cancel</Button>
@@ -146,43 +152,38 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
           <ModalSection title="Products" icon={Package} hint={lines.length ? `${lines.length} line${lines.length === 1 ? '' : 's'}` : undefined}>
             <div className="rounded-[14px] border border-line-2 bg-surface p-3.5">
               <div className="label mb-2">Add to this restock</div>
-            <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1.6fr)_84px_112px_120px_auto]">
+            <div className="flex flex-col gap-2.5">
               <Field label="Product" htmlFor="rs-variant">
                 <Combobox id="rs-variant" value={draft.variantId} onChange={onDraftVariant} options={variantOptions(data.items)} placeholder="Search products…" />
               </Field>
-              <Field label="Qty" htmlFor="rs-qty">
-                <input
-                  id="rs-qty"
-                  className="input"
-                  type="number"
-                  min="1"
-                  inputMode="numeric"
-                  value={draft.quantity}
-                  onChange={(e) => setDraft((d) => ({ ...d, quantity: e.target.value }))}
-                />
-              </Field>
-              <Field label="Unit" htmlFor="rs-unit">
-                <Select id="rs-unit" value={draft.unit} onChange={(e) => onDraftUnit(e.target.value)}>
-                  {v &&
-                    availableUnits(v).map((u) => (
-                      <option key={u} value={u}>
-                        {UNIT_LABEL[u]}
-                      </option>
-                    ))}
-                </Select>
-              </Field>
-              <Field label={`Cost / ${draft.unit || 'unit'}`} htmlFor="rs-cost">
-                <MoneyInput id="rs-cost" value={draft.costPerUnit} onChange={(e) => setDraft((d) => ({ ...d, costPerUnit: e.target.value }))} />
-              </Field>
-              <div className="flex items-end">
-                <Button type="button" variant="primary" icon={Plus} disabled={!draftValid} onClick={addLine} className="w-full sm:w-auto">
-                  Add
-                </Button>
+              <div className="grid grid-cols-2 gap-2.5 sm:flex sm:items-end">
+                {units.map((u) => (
+                  <Field key={u} label={`${UNIT_LABEL[u]}s`} htmlFor={`rs-qty-${u}`} className="sm:flex-1">
+                    <input
+                      id={`rs-qty-${u}`}
+                      className="input"
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={draft.qtys[u] ?? ''}
+                      onChange={(e) => setDraft((d) => ({ ...d, qtys: { ...d.qtys, [u]: e.target.value } }))}
+                    />
+                  </Field>
+                ))}
+                <Field label={`Cost / ${draft.unit || 'unit'}`} htmlFor="rs-cost" className="sm:flex-1">
+                  <MoneyInput id="rs-cost" value={draft.costPerUnit} onChange={(e) => setDraft((d) => ({ ...d, costPerUnit: e.target.value }))} />
+                </Field>
+                <div className="flex items-end">
+                  <Button type="button" variant="primary" icon={Plus} disabled={!draftValid} onClick={addLine} className="w-full sm:w-auto">
+                    Add
+                  </Button>
+                </div>
               </div>
             </div>
             {v && draftBase > 0 && (
               <p className="hint mt-2">
-                {plural(draftQty, draft.unit)} × {conv} bottles = {plural(draftBase, 'bottle')} · {money(draftQty * draftCost)}
+                {draftParts.map((p) => plural(p.qty, p.unit)).join(' + ')} = {plural(draftBase, 'bottle')} · {money(draftParts.reduce((s, p) => s + p.qty * unitCost(p.conv), 0))}
               </p>
             )}
           </div>
@@ -248,7 +249,7 @@ const ADJ_TYPES = [
 export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity, initialDirection, initialNotes }) {
   const data = useStockData(open, false);
   const toast = useToast();
-  const [form, setForm] = useState({ variantId: '', type: 'DAMAGED', direction: 'remove', quantity: 1, unit: 'bottle', notes: '' });
+  const [form, setForm] = useState({ variantId: '', type: 'DAMAGED', direction: 'remove', quantity: 1, extra: '', unit: 'bottle', notes: '' });
   const [confirming, setConfirming] = useState(false);
   const [serverError, setServerError] = useState('');
 
@@ -261,7 +262,8 @@ export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity,
       type: prefilled ? 'CORRECTION' : 'DAMAGED',
       direction: prefilled ? initialDirection : 'remove',
       quantity: prefilled ? initialQuantity : 1,
-      unit: 'bottle',
+      extra: '',
+      unit: prefilled ? 'bottle' : bigUnit(first),
       notes: initialNotes || '',
     });
     setServerError('');
@@ -271,7 +273,9 @@ export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity,
   const v = data?.items.find((i) => i.variantId === form.variantId);
   const type = ADJ_TYPES.find((t) => t[0] === form.type);
   const remove = type[2] === -1 || form.direction === 'remove';
-  const base = (Number(form.quantity) || 0) * (v ? conversionFor(v, form.unit) : 0);
+  // `quantity` is in the chosen unit (e.g. cartons); `extra` is loose bottles on top of it.
+  const extraOk = v && form.unit !== 'bottle';
+  const base = (Number(form.quantity) || 0) * (v ? conversionFor(v, form.unit) : 0) + (extraOk ? Math.floor(Number(form.extra)) || 0 : 0);
   const delta = remove ? -base : base;
   const after = (v?.quantity || 0) + delta;
   const error = after < 0 ? `Stock can’t go below zero. Only ${plural(v.quantity, 'bottle')} in stock.` : '';
@@ -280,7 +284,7 @@ export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity,
 
   const confirm = async () => {
     try {
-      await inventoryService.adjust({ ...form, quantity: Number(form.quantity) });
+      await inventoryService.adjust({ variantId: form.variantId, type: form.type, direction: form.direction, notes: form.notes, unit: 'bottle', quantity: base });
       toast.success('Stock adjustment recorded.');
       onDone?.();
       onClose();
@@ -313,7 +317,7 @@ export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity,
           <>
             <FormError message={serverError} />
             <Field label="Product" htmlFor="adj-variant">
-              <Combobox id="adj-variant" value={form.variantId} onChange={(variantId) => set({ variantId, unit: 'bottle' })} options={variantOptions(data.items)} placeholder="Search products…" />
+              <Combobox id="adj-variant" value={form.variantId} onChange={(variantId) => set({ variantId, unit: bigUnit(data.items.find((i) => i.variantId === variantId)), extra: '' })} options={variantOptions(data.items)} placeholder="Search products…" />
             </Field>
             <div>
               <div className="label mb-2">Reason</div>
@@ -335,7 +339,7 @@ export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity,
                 ))}
               </div>
             </div>
-            <div className="grid gap-3.5 sm:grid-cols-3">
+            <div className="grid gap-3.5 sm:grid-cols-4">
               {type[2] === 0 && (
                 <Field label="Direction">
                   <div className="inline-flex gap-[3px] rounded-[11px] bg-surface-3 p-[3px]">
@@ -347,11 +351,16 @@ export function AdjustModal({ open, onClose, onDone, variantId, initialQuantity,
                   </div>
                 </Field>
               )}
-              <Field label="Quantity" htmlFor="adj-qty">
-                <input id="adj-qty" className="input" type="number" min="1" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} aria-invalid={error ? 'true' : undefined} />
+              <Field label={`${UNIT_LABEL[form.unit]}s`} htmlFor="adj-qty">
+                <input id="adj-qty" className="input" type="number" min="0" value={form.quantity} onChange={(e) => set({ quantity: e.target.value })} aria-invalid={error ? 'true' : undefined} />
               </Field>
-              <Field label="Unit" htmlFor="adj-unit">
-                <Select id="adj-unit" value={form.unit} onChange={(e) => set({ unit: e.target.value })}>
+              {extraOk && (
+                <Field label="Plus bottles" htmlFor="adj-extra">
+                  <input id="adj-extra" className="input" type="number" min="0" inputMode="numeric" placeholder="0" value={form.extra} onChange={(e) => set({ extra: e.target.value })} aria-invalid={error ? 'true' : undefined} />
+                </Field>
+              )}
+              <Field label="Counted in" htmlFor="adj-unit">
+                <Select id="adj-unit" value={form.unit} onChange={(e) => set({ unit: e.target.value, extra: '' })}>
                   {availableUnits(v).map((u) => (
                     <option key={u} value={u}>
                       {UNIT_LABEL[u]}

@@ -4,12 +4,13 @@ import { AlertTriangle, Check, ChevronRight, ClipboardCheck, SlidersHorizontal }
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader, DetailList } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
+import { ConfirmDialog } from '../../components/ui/Modal.jsx';
 import { Badge } from '../../components/ui/Badge.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { AdjustModal } from '../../components/modals/StockModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { useToast } from '../../context/ToastContext.jsx';
-import { stockCountService } from '../../services/index.js';
+import { inventoryService, stockCountService } from '../../services/index.js';
 import { fmtDateTime, plural } from '../../utils/format.js';
 import { UNIT_LABEL } from '../../utils/units.js';
 import { cn } from '../../utils/cn.js';
@@ -22,6 +23,9 @@ export default function StockCountDetail() {
   const toast = useToast();
   const [reviewing, setReviewing] = useState(false);
   const [adjusting, setAdjusting] = useState(null); // variantId to pre-open AdjustModal for
+  const [selected, setSelected] = useState(() => new Set());
+  const [applied, setApplied] = useState(() => new Set()); // variantIds already adjusted from this page
+  const [bulk, setBulk] = useState(null); // rows queued for the bulk-adjust confirmation
   const { data, error, reload } = useApi(() => stockCountService.get(id), [id]);
 
   if (error && !data) return <ErrorState error={error} onRetry={reload} />;
@@ -41,6 +45,48 @@ export default function StockCountDetail() {
   };
 
   const withDifference = data.items.filter((i) => i.type !== 'MATCHED');
+  const pending = withDifference.filter((i) => !applied.has(i.variantId));
+  const selectedRows = pending.filter((i) => selected.has(i.variantId));
+  const allSelected = pending.length > 0 && selectedRows.length === pending.length;
+  const toggle = (vid) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      n.has(vid) ? n.delete(vid) : n.add(vid);
+      return n;
+    });
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(pending.map((i) => i.variantId)));
+
+  // Applies each count difference as a CORRECTION, the same as the single Adjust Stock flow.
+  const applyBulk = async () => {
+    const done = [];
+    let failed = null;
+    for (const i of bulk) {
+      try {
+        await inventoryService.adjust({
+          variantId: i.variantId,
+          type: 'CORRECTION',
+          direction: i.difference < 0 ? 'remove' : 'add',
+          unit: 'bottle',
+          quantity: Math.abs(i.difference),
+          notes: `Physical count ${data.countNumber}: expected ${plural(i.expectedQuantity, 'bottle')}, counted ${plural(i.physicalQuantity, 'bottle')}.`,
+        });
+        done.push(i.variantId);
+      } catch (err) {
+        failed = `${i.name}: ${err.message}`;
+        break;
+      }
+    }
+    setApplied((a) => new Set([...a, ...done]));
+    setSelected((s) => new Set([...s].filter((x) => !done.includes(x))));
+    if (done.length) {
+      toast.success(`Adjusted ${plural(done.length, 'product')}.`);
+      reload();
+    }
+    if (failed) {
+      toast.error(`Stopped at ${failed}`);
+      throw new Error(failed);
+    }
+  };
 
   return (
     <Page>
@@ -87,11 +133,29 @@ export default function StockCountDetail() {
       )}
 
       <Card flush>
-        <CardHeader flush title="Products counted" />
+        <CardHeader
+          flush
+          title="Products counted"
+          action={
+            pending.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" icon={SlidersHorizontal} disabled={!selectedRows.length} onClick={() => setBulk(selectedRows)}>
+                  Adjust selected{selectedRows.length ? ` (${selectedRows.length})` : ''}
+                </Button>
+                <Button size="sm" variant="primary" icon={SlidersHorizontal} onClick={() => setBulk(pending)}>
+                  Adjust all stock ({pending.length})
+                </Button>
+              </div>
+            )
+          }
+        />
         <div className="overflow-x-auto">
           <table className="table min-w-[860px]">
             <thead>
               <tr>
+                <th className="w-10">
+                  <input type="checkbox" aria-label="Select all products with a difference" checked={allSelected} disabled={!pending.length} onChange={toggleAll} />
+                </th>
                 <th>Product</th>
                 <th>Counted as</th>
                 <th className="num">Expected</th>
@@ -104,6 +168,11 @@ export default function StockCountDetail() {
             <tbody>
               {data.items.map((i) => (
                 <tr key={i.variantId}>
+                  <td>
+                    {i.type !== 'MATCHED' && !applied.has(i.variantId) && (
+                      <input type="checkbox" aria-label={`Select ${i.name}`} checked={selected.has(i.variantId)} onChange={() => toggle(i.variantId)} />
+                    )}
+                  </td>
                   <td className="font-semibold">
                     <Link to={`/admin/inventory/${i.variantId}`} className="flex items-center gap-1.5 hover:text-brand-ink">
                       {i.name}
@@ -122,10 +191,14 @@ export default function StockCountDetail() {
                     <Badge tone={TYPE_TONE[i.type]}>{TYPE_LABEL[i.type]}</Badge>
                   </td>
                   <td className="num">
-                    {i.type !== 'MATCHED' && (
+                    {applied.has(i.variantId) ? (
+                      <Badge tone="ok">Adjusted</Badge>
+                    ) : (
+                      i.type !== 'MATCHED' && (
                       <Button size="sm" icon={SlidersHorizontal} onClick={() => setAdjusting(i)}>
                         Adjust Stock
                       </Button>
+                      )
                     )}
                   </td>
                 </tr>
@@ -142,10 +215,44 @@ export default function StockCountDetail() {
         </Card>
       )}
 
+      <ConfirmDialog
+        open={Boolean(bulk)}
+        onClose={() => setBulk(null)}
+        onConfirm={async () => {
+          await applyBulk();
+          setBulk(null);
+        }}
+        title={`Adjust ${bulk ? plural(bulk.length, 'product') : ''}`}
+        confirmLabel="Record adjustments"
+        danger={false}
+        icon={SlidersHorizontal}
+      >
+        {bulk && (
+          <>
+            <p>Each product’s stock is moved by its counted difference, recorded as a stock correction with your name and a note referencing {data.countNumber}.</p>
+            <ul className="mt-2 max-h-48 overflow-y-auto text-[13px]">
+              {bulk.map((i) => (
+                <li key={i.variantId} className="flex justify-between gap-3 py-0.5">
+                  <span>{i.name}</span>
+                  <b className={i.difference < 0 ? 'text-bad' : 'text-ok'}>
+                    {i.difference > 0 ? '+' : ''}
+                    {plural(i.difference, 'bottle')}
+                  </b>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2">Can’t be edited later. Skip any product you’ve already adjusted.</p>
+          </>
+        )}
+      </ConfirmDialog>
+
       <AdjustModal
         open={Boolean(adjusting)}
         onClose={() => setAdjusting(null)}
-        onDone={reload}
+        onDone={() => {
+          if (adjusting) setApplied((a) => new Set([...a, adjusting.variantId]));
+          reload();
+        }}
         variantId={adjusting?.variantId}
         initialQuantity={adjusting ? Math.abs(adjusting.difference) : undefined}
         initialDirection={adjusting?.difference < 0 ? 'remove' : 'add'}
