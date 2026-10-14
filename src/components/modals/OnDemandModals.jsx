@@ -57,7 +57,7 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
     Number(requestedQuantity) > 0 &&
     purchasedFrom.trim().length >= 2 &&
     (addingNew
-      ? newProduct.name.trim() && newProduct.category.trim() && newProduct.size.trim() && Number(newProduct.sellingPrice) > 0
+      ? newProduct.name.trim() && newProduct.category.trim() && newProduct.size.trim() && Number(newProduct.sellingPrice) > 0 && (unit === 'bottle' || Number(newProduct.unitSize) > 0)
       : Boolean(variantId));
 
   const submit = async () => {
@@ -67,7 +67,7 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
     try {
       await onDemandPurchaseService.create({
         ...(addingNew
-          ? { newProduct: { ...newProduct, sellingPrice: Number(newProduct.sellingPrice) } }
+          ? { newProduct: { ...newProduct, sellingPrice: Number(newProduct.sellingPrice), ...(unit !== 'bottle' ? { unitSize: Number(newProduct.unitSize) } : {}) } }
           : { variantId }),
         requestedQuantity: Number(requestedQuantity),
         unit,
@@ -169,6 +169,11 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
           </Field>
         </div>
 
+        {addingNew && unit !== 'bottle' && (
+          <Field label={`Bottles in one ${UNIT_LABEL[unit].toLowerCase()}`} htmlFor="odp-unitsize">
+            <Input id="odp-unitsize" type="number" min="1" value={newProduct.unitSize || ''} onChange={(e) => setNewProduct((p) => ({ ...p, unitSize: e.target.value }))} placeholder="e.g. 12" />
+          </Field>
+        )}
         <div className="grid gap-3.5 sm:grid-cols-2">
           <Field label="Buying from" htmlFor="odp-from">
             <Input id="odp-from" value={purchasedFrom} onChange={(e) => setPurchasedFrom(e.target.value)} placeholder="e.g. Chidi's Bar" autoComplete="off" />
