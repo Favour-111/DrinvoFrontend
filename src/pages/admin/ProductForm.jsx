@@ -46,7 +46,7 @@ const variantSchema = z
     if (Number(v.minimumSellingPrice) > v.sellingPrice) {
       ctx.addIssue({ code: 'custom', path: ['minimumSellingPrice'], message: 'Minimum selling price cannot be higher than the default selling price.' });
     }
-    for (const u of LARGE) if (v[u].on && !(v[u].n > 1)) ctx.addIssue({ code: 'custom', path: [u, 'n'], message: `A ${u} must hold more than 1 bottle` });
+    for (const u of LARGE) if (v[u].on && !(v[u].n >= 1)) ctx.addIssue({ code: 'custom', path: [u, 'n'], message: `A ${u} must hold at least 1 bottle` });
   });
 const schema = z.object({
   name: z.string().trim().min(1, 'Enter a product name'),
@@ -303,7 +303,7 @@ function VariantBlock({ index, form, onRemove, productName }) {
                   <input
                     className="input h-[34px] w-16 px-1.5 text-center"
                     type="number"
-                    min="2"
+                    min="1"
                     disabled={!on}
                     aria-label={`Bottles per ${u}`}
                     aria-invalid={err?.[u]?.n ? 'true' : undefined}
