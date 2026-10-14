@@ -1,3 +1,4 @@
+import { isoDate } from '../../utils/format.js';
 import { forwardRef, useId } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { cn } from '../../utils/cn.js';
@@ -128,3 +129,14 @@ export function FormError({ message }) {
   if (!message) return null;
   return <div className="rounded-[10px] border border-bad/15 bg-bad-soft px-3.5 py-3 text-[13.5px] font-medium text-bad">{message}</div>;
 }
+
+/** "When did this happen?" picker for logging past records. Defaults to today; pass the value
+ * through `occurredAtPayload` so a live (today) entry sends nothing and keeps the real timestamp. */
+export function DateField({ id, label = 'Date', value, onChange }) {
+  return (
+    <Field label={label} htmlFor={id} hint={value && value !== isoDate() ? 'Recorded under this past date. Stock still updates now.' : undefined}>
+      <input id={id} type="date" className="input" max={isoDate()} value={value} onChange={(e) => onChange(e.target.value || isoDate())} />
+    </Field>
+  );
+}
+export const occurredAtPayload = (value) => (value && value !== isoDate() ? { occurredAt: new Date(`${value}T12:00:00`).toISOString() } : {});

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Plus, Trash2, Undo2 } from '../icons.js';
 import { Modal } from '../ui/Modal.jsx';
 import { Button, IconButton } from '../ui/Button.jsx';
-import { Field, FormError, Input, Textarea } from '../ui/Form.jsx';
+import { DateField, Field, FormError, Input, Textarea, occurredAtPayload } from '../ui/Form.jsx';
 import { Combobox } from '../ui/Combobox.jsx';
 import { Skeleton } from '../ui/Feedback.jsx';
 import { inventoryService, borrowingService } from '../../services/index.js';
@@ -61,6 +61,7 @@ export function BorrowModal({ open, onClose, onDone }) {
   const [counterpartyPhone, setCounterpartyPhone] = useState('');
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(isoDate());
   const [lines, setLines] = useState([]);
   const [draftVariantId, setDraftVariantId] = useState('');
   const [draftQty, setDraftQty] = useState({});
@@ -74,6 +75,7 @@ export function BorrowModal({ open, onClose, onDone }) {
     setCounterpartyPhone('');
     setExpectedReturnDate('');
     setNotes('');
+    setDate(isoDate());
     setLines([]);
     setDraftVariantId('');
     setDraftQty({});
@@ -108,6 +110,7 @@ export function BorrowModal({ open, onClose, onDone }) {
         items: lines.map(({ variantId, counts }) => ({ variantId, counts })),
         ...(expectedReturnDate ? { expectedReturnDate: new Date(`${expectedReturnDate}T12:00:00`).toISOString() } : {}),
         notes,
+        ...occurredAtPayload(date),
       });
       toast.success(direction === 'LENT' ? 'Lending recorded.' : 'Borrowing recorded.');
       onDone?.();
@@ -224,6 +227,7 @@ export function BorrowModal({ open, onClose, onDone }) {
           </div>
         )}
 
+        <DateField id="brw-occurred" label="Date" value={date} onChange={setDate} />
         <div className="grid gap-3.5 sm:grid-cols-2">
           <Field label="Expected return date (optional)" htmlFor="brw-date">
             <input id="brw-date" type="date" className="input" min={isoDate()} value={expectedReturnDate} onChange={(e) => setExpectedReturnDate(e.target.value)} />

@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Check, Plus, ShoppingCart, PackageSearch } from '../icons.js';
 import { Modal } from '../ui/Modal.jsx';
 import { Button } from '../ui/Button.jsx';
-import { Field, FormError, Input, Select, Switch, Textarea } from '../ui/Form.jsx';
+import { DateField, Field, FormError, Input, Select, Switch, Textarea, occurredAtPayload } from '../ui/Form.jsx';
 import { Combobox } from '../ui/Combobox.jsx';
 import { Skeleton } from '../ui/Feedback.jsx';
 import { productService, onDemandPurchaseService } from '../../services/index.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { useCart } from '../../context/CartContext.jsx';
 import { describeStock, UNIT_LABEL, UNITS } from '../../utils/units.js';
-import { money } from '../../utils/format.js';
+import { isoDate, money } from '../../utils/format.js';
 
 const variantOptions = (items) =>
   items.map((v) => ({ value: v.variantId, label: v.name, group: v.productName, sublabel: v.quantity > 0 ? describeStock(v) : 'Not stocked here' }));
@@ -32,6 +32,7 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
   const [customerName, setCustomerName] = useState('');
   const [sellingPricePerUnit, setSellingPricePerUnit] = useState('');
   const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(isoDate());
   const [serverError, setServerError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,6 +48,7 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
     setCustomerName('');
     setSellingPricePerUnit('');
     setNotes('');
+    setDate(isoDate());
     setServerError('');
     productService.list().then((r) => setItems(r.items));
   }, [open]);
@@ -74,6 +76,7 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
         customerName: customerName.trim(),
         ...(sellingPricePerUnit ? { sellingPricePerUnit: Number(sellingPricePerUnit) } : {}),
         notes,
+        ...occurredAtPayload(date),
       });
       toast.success('Request recorded — mark it as purchased once you’ve bought it.');
       onDone?.();
@@ -178,6 +181,7 @@ export function RequestOnDemandModal({ open, onClose, onDone }) {
           <Field label="Customer (optional)" htmlFor="odp-customer">
             <Input id="odp-customer" value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Who asked for this" />
           </Field>
+          <DateField id="odp-date" label="Request date" value={date} onChange={setDate} />
           <Field label="Notes" htmlFor="odp-notes">
             <Textarea id="odp-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" className="min-h-[42px]" />
           </Field>
@@ -198,6 +202,7 @@ export function MarkPurchasedModal({ open, onClose, onDone, odp, canSell }) {
   const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState('bottle');
   const [unitCost, setUnitCost] = useState('');
+  const [date, setDate] = useState(isoDate());
   const [sellingPricePerUnit, setSellingPricePerUnit] = useState('');
   const [sellNow, setSellNow] = useState(true);
   const [serverError, setServerError] = useState('');
@@ -208,6 +213,7 @@ export function MarkPurchasedModal({ open, onClose, onDone, odp, canSell }) {
     setQuantity(String(odp.requestedQuantity || 1));
     setUnit(odp.unit || 'bottle');
     setUnitCost('');
+    setDate(isoDate());
     setSellingPricePerUnit(odp.sellingPricePerUnit ? String(odp.sellingPricePerUnit) : '');
     setSellNow(canSell);
     setServerError('');
@@ -225,6 +231,7 @@ export function MarkPurchasedModal({ open, onClose, onDone, odp, canSell }) {
         quantity: Number(quantity),
         unit,
         unitCost: Number(unitCost),
+        ...occurredAtPayload(date),
         ...(sellingPricePerUnit ? { sellingPricePerUnit: Number(sellingPricePerUnit) } : {}),
       });
       toast.success('Purchase recorded — stock is in.');
@@ -283,6 +290,7 @@ export function MarkPurchasedModal({ open, onClose, onDone, odp, canSell }) {
         <Field label="Suggested selling price (optional)" htmlFor="odpp-sell">
           <Input id="odpp-sell" type="number" min="0" value={sellingPricePerUnit} onChange={(e) => setSellingPricePerUnit(e.target.value)} placeholder={`Per ${UNIT_LABEL[unit].toLowerCase()}`} />
         </Field>
+        <DateField id="odpp-date" label="Purchase date" value={date} onChange={setDate} />
         {canSell && (
           <label className="flex items-center justify-between gap-3 rounded-[16px] border border-line-2 bg-surface-2 px-3.5 py-3 text-[13.5px]">
             <span>Add straight to a sale for this customer</span>

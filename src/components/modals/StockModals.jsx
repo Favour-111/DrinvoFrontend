@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { ArrowLeftRight, ArrowRight, Check, Plus, SlidersHorizontal, Trash2, Truck, Package } from '../icons.js';
 import { Modal, ConfirmDialog, ModalSection } from '../ui/Modal.jsx';
 import { Button, IconButton } from '../ui/Button.jsx';
-import { Field, FormError, MoneyInput, Select, Textarea } from '../ui/Form.jsx';
+import { DateField, Field, FormError, MoneyInput, Select, Textarea, occurredAtPayload } from '../ui/Form.jsx';
 import { Combobox } from '../ui/Combobox.jsx';
 import { Skeleton } from '../ui/Feedback.jsx';
 import { inventoryService, supplierService, transferService } from '../../services/index.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
-import { money, plural } from '../../utils/format.js';
+import { isoDate, money, plural } from '../../utils/format.js';
 import { availableUnits, bigUnit, conversionFor, describeStock, UNIT_LABEL } from '../../utils/units.js';
 import { cn } from '../../utils/cn.js';
 
@@ -416,6 +416,7 @@ export function TransferModal({ open, onClose, onDone }) {
   const [sourceItems, setSourceItems] = useState(null);
   const [loadingSource, setLoadingSource] = useState(false);
   const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(isoDate());
   const [lines, setLines] = useState([]);
   const [draft, setDraft] = useState({ variantId: '', unit: 'bottle', quantity: 1 });
   const [serverError, setServerError] = useState('');
@@ -426,6 +427,7 @@ export function TransferModal({ open, onClose, onDone }) {
     setFromShopId(shops[0]?.id || '');
     setToShopId(shops[1]?.id || '');
     setNotes('');
+    setDate(isoDate());
     setLines([]);
     setServerError('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -482,6 +484,7 @@ export function TransferModal({ open, onClose, onDone }) {
         toShopId,
         items: lines.map(({ variantId, unit, quantity }) => ({ variantId, unit, quantity })),
         notes,
+        ...occurredAtPayload(date),
       });
       toast.success('Stock transferred successfully.');
       onDone?.();
@@ -614,6 +617,7 @@ export function TransferModal({ open, onClose, onDone }) {
             </div>
           )}
 
+          <DateField id="tr-date" label="Transfer date" value={date} onChange={setDate} />
           <Field label="Notes" htmlFor="tr-notes">
             <Textarea id="tr-notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" className="min-h-16" />
           </Field>
