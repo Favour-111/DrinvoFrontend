@@ -314,6 +314,24 @@ function VariantBlock({ index, form, onRemove, productName }) {
                 <div className="col-span-2 sm:col-span-1">
                   <MoneyInput disabled={!on} aria-label={`${u} price`} placeholder={suggested ? num(suggested) : 'Price'} {...register(`${p}.${u}.price`)} />
                 </div>
+                {on && u !== 'pack' && v.pack?.on && Number(v.pack.n) > 0 && (
+                  <label className="col-span-full flex flex-wrap items-center gap-2 text-[12.5px] text-ink-3">
+                    Or count it in packs: 1 {u} =
+                    <input
+                      className="input h-[30px] w-14 px-1.5 text-center"
+                      type="number"
+                      min="1"
+                      aria-label={`Packs per ${u}`}
+                      value={n && n % Number(v.pack.n) === 0 ? n / Number(v.pack.n) : ''}
+                      onChange={(e) => {
+                        const packs = Number(e.target.value);
+                        if (packs >= 1) form.setValue(`${p}.${u}.n`, packs * Number(v.pack.n), { shouldValidate: true, shouldDirty: true });
+                      }}
+                    />
+                    packs of {v.pack.n}
+                    {n > 0 && <b className="text-ink-2">= {plural(n, 'bottle')}</b>}
+                  </label>
+                )}
                 {err?.[u]?.n && <span className="col-span-full text-[12px] font-medium text-bad">{err[u].n.message}</span>}
               </div>
             );
