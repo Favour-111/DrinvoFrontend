@@ -9,10 +9,10 @@ import { inventoryService, supplierService, transferService } from '../../servic
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { isoDate, money, plural } from '../../utils/format.js';
-import { availableUnits, bigUnit, conversionFor, describeStock, UNIT_LABEL } from '../../utils/units.js';
+import { availableUnits, bigUnit, conversionFor, costFor, describeStock, isMiniature, UNIT_LABEL } from '../../utils/units.js';
 import { cn } from '../../utils/cn.js';
 
-const variantOptions = (items) => items.map((v) => ({ value: v.variantId, label: v.name, group: v.productName, sublabel: describeStock(v) }));
+const variantOptions = (items) => items.map((v) => ({ value: v.variantId, label: v.name, group: v.productName, sublabel: `${isMiniature(v) ? 'Miniature · ' : ''}${describeStock(v)}` }));
 const supplierOptions = (suppliers) => suppliers.map((s) => ({ value: s.id, label: s.name }));
 
 function FromTo({ before, after, variant, afterLabel }) {
@@ -49,6 +49,9 @@ function useStockData(open, withSuppliers) {
 }
 
 /* ------------------------------------------------------------------ */
+/** What the cost box starts at: a miniature's saved pack/carton cost, else the shop's average cost for the unit. */
+const defaultCost = (item, unit) => (isMiniature(item) && costFor(item, unit) > 0 ? costFor(item, unit) : Math.round(item.avgCost * conversionFor(item, unit)));
+
 export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
   const data = useStockData(open, true);
   const toast = useToast();
@@ -68,7 +71,7 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
     setServerError('');
     if (first) {
       const u = bigUnit(first);
-      setDraft({ variantId: first.variantId, unit: u, qtys: { [u]: 10 }, costPerUnit: Math.round(first.avgCost * conversionFor(first, u)) });
+      setDraft({ variantId: first.variantId, unit: u, qtys: { [u]: 10 }, costPerUnit: defaultCost(first, u) });
     }
   }, [open, data, variantId, supplierId]);
 
@@ -84,7 +87,7 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
   const onDraftVariant = (id) => {
     const nv = data.items.find((i) => i.variantId === id);
     const u = bigUnit(nv);
-    setDraft({ variantId: id, unit: u, qtys: { [u]: 10 }, costPerUnit: Math.round(nv.avgCost * conversionFor(nv, u)) });
+    setDraft({ variantId: id, unit: u, qtys: { [u]: 10 }, costPerUnit: defaultCost(nv, u) });
   };
   const unitCost = (conv) => Math.round(((draftCost * conv) / costConv) * 100) / 100;
 
@@ -181,6 +184,21 @@ export function RestockModal({ open, onClose, onDone, variantId, supplierId }) {
                 </div>
               </div>
             </div>
+            {v && isMiniature(v) && draftBase > 0 && (
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 rounded-[12px] bg-surface-2 px-3 py-2.5 text-[12.5px] sm:grid-cols-4" aria-live="polite">
+                {[
+                  ['Cartons received', draftParts.filter((p) => p.unit === 'carton').reduce((n, p) => n + p.qty, 0)],
+                  ['Packs received', Math.floor(draftBase / (conversionFor(v, 'pack') || 1))],
+                  ['Bottles received', draftBase],
+                  ['Total cost', money(draftParts.reduce((s, p) => s + p.qty * unitCost(p.conv), 0))],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-ink-3">{label}</dt>
+                    <dd className="tnum font-semibold text-ink">{typeof value === 'number' ? value.toLocaleString('en-US') : value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             {v && draftBase > 0 && (
               <p className="hint mt-2">
                 {draftParts.map((p) => plural(p.qty, p.unit)).join(' + ')} = {plural(draftBase, 'bottle')} · {money(draftParts.reduce((s, p) => s + p.qty * unitCost(p.conv), 0))}

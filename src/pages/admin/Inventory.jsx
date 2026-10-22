@@ -9,6 +9,7 @@ import { Select } from '../../components/ui/Form.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductCell } from '../../components/ui/Media.jsx';
 import { AdjustModal, RestockModal } from '../../components/modals/StockModals.jsx';
+import { MiniatureStockSummary } from '../../components/MiniatureSummary.jsx';
 import { useApi, useDebounce } from '../../hooks/useApi.js';
 import { useStockUpdates } from '../../hooks/useStockUpdates.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -84,6 +85,8 @@ export default function Inventory() {
         </button>
         <StatCard label="Inventory Value" value={money(summary.inventoryValue)} icon={Wallet} footer="at weighted average cost" />
       </div>
+
+      <MiniatureStockSummary stock={summary.miniature} />
 
       <div className="flex flex-wrap items-center gap-2.5">
         <label className="relative w-full sm:w-auto sm:max-w-[360px] sm:flex-1">

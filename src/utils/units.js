@@ -24,8 +24,39 @@ export function minimumFor(v, unit) {
 const plural = (n, w) => `${Math.round(n).toLocaleString('en-US')} ${w}${n === 1 ? '' : 's'}`;
 export const unitQty = (qty, unit) => plural(qty, unit);
 
-/** "5 cartons + 12 bottles" */
+/** True for products set up as miniatures (stock rows and products both carry the flag). */
+export const isMiniature = (v) => v?.packagingType === 'MINIATURE' || v?.isMiniature === true;
+
+/** Purchase cost for one `unit`: the saved pack/carton cost if set, else bottle cost x bottles in the unit. */
+export function costFor(v, unit) {
+  const c = conversionFor(v, unit);
+  if (!c) return 0;
+  if (unit === 'bottle') return Number(v.costPrice) || 0;
+  const own = Number(v.unitCosts?.[unit]);
+  return own > 0 ? own : Math.round((Number(v.costPrice) || 0) * c * 100) / 100;
+}
+
+/** { carton, pack, bottle } whole units for a bottle count: cartons first, then packs, then loose bottles. */
+export function breakdownStock(v, bottles = v?.quantity ?? 0) {
+  let rest = Math.max(0, Math.floor(bottles));
+  const out = { carton: 0, pack: 0, bottle: 0 };
+  for (const u of ['carton', 'pack']) {
+    const c = conversionFor(v, u);
+    if (!c) continue;
+    out[u] = Math.floor(rest / c);
+    rest -= out[u] * c;
+  }
+  out.bottle = rest;
+  return out;
+}
+
+/** "5 cartons + 12 bottles"; miniatures list every level: "4 cartons + 9 packs + 2 bottles". */
 export function describeStock(v, bottles = v?.quantity ?? 0) {
+  if (isMiniature(v)) {
+    const b = breakdownStock(v, bottles);
+    const parts = ['carton', 'pack', 'bottle'].filter((u) => b[u] > 0).map((u) => plural(b[u], u));
+    return parts.length ? parts.join(' + ') : plural(0, 'bottle');
+  }
   const u = bigUnit(v);
   if (u === 'bottle' || bottles === 0) return plural(bottles, 'bottle');
   const c = conversionFor(v, u);
@@ -56,6 +87,21 @@ export function mergeStockRows(rows, updates) {
   return changed ? next : rows;
 }
 
+/** Miniature-only stock totals (a subset of the overall totals, never added on top of them). */
+export function summarizeMiniature(rows) {
+  const mini = rows.filter((r) => isMiniature(r) && r.status !== 'archived');
+  return {
+    variantCount: mini.length,
+    totalBottles: mini.reduce((s, r) => s + r.quantity, 0),
+    cartons: mini.reduce((s, r) => s + breakdownStock(r).carton, 0),
+    packs: mini.reduce((s, r) => s + breakdownStock(r).pack, 0),
+    looseBottles: mini.reduce((s, r) => s + breakdownStock(r).bottle, 0),
+    lowStock: mini.filter((r) => r.status === 'low').length,
+    outOfStock: mini.filter((r) => r.status === 'out').length,
+    inventoryValue: Math.round(mini.reduce((s, r) => s + (r.inventoryValue || 0), 0) * 100) / 100,
+  };
+}
+
 /** Recomputes the inventory summary card totals from a full (unfiltered) row set. */
 export function summarizeStock(rows) {
   const live = rows.filter((r) => r.status !== 'archived');
@@ -66,6 +112,7 @@ export function summarizeStock(rows) {
     lowStock: live.filter((r) => r.status === 'low').length,
     outOfStock: live.filter((r) => r.status === 'out').length,
     inventoryValue: Math.round(live.reduce((s, r) => s + r.inventoryValue, 0) * 100) / 100,
+    miniature: summarizeMiniature(live),
   };
 }
 

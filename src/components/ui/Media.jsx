@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { MiniatureTag } from './Badge.jsx';
 import { cn } from '../../utils/cn.js';
 import { initials } from '../../utils/format.js';
 
@@ -73,11 +74,13 @@ export function Logo({ className, light }) {
 }
 
 export function ProductCell({ product, name, sub, size = 40 }) {
+  const miniature = product?.isMiniature || product?.packagingType === 'MINIATURE';
   return (
     <div className="flex min-w-0 items-center gap-3">
       <ProductThumb product={product} size={size} />
       <div className="min-w-0">
         <b className="block truncate font-semibold">{name}</b>
+        {miniature && <MiniatureTag className="mt-0.5" />}
         {sub && <small className="text-[12px] text-ink-3">{sub}</small>}
       </div>
     </div>

@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, ClipboardList, Package, PackageSearch, Plus, Receipt, ShoppingCart, TrendingUp, Truck, Undo2, Users, Wallet, ArrowLeftRight, BarChart3 } from '../../components/icons.js';
 import { Page, PageHeader, Tabs, RANGE_OPTIONS } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader, CardLink, StatBar } from '../../components/ui/Card.jsx';
+import { MiniatureStockSummary } from '../../components/MiniatureSummary.jsx';
 import { Button, ButtonLink } from '../../components/ui/Button.jsx';
-import { Delta, PaymentTag } from '../../components/ui/Badge.jsx';
+import { Delta, MiniatureTag, PaymentTag } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { SalesChart, ChartLegend } from '../../components/charts/SalesChart.jsx';
@@ -69,6 +70,8 @@ export default function Dashboard() {
           { key: 'collected', label: 'Cash collected', value: money(today.cashCollected), icon: Wallet, iconTone: 'warn', to: '/admin/customers', footer: <><Delta current={today.cashCollected} previous={yesterday.cashCollected} /> vs yesterday</> },
         ]}
       />
+
+      <MiniatureStockSummary stock={data.miniature?.stock} today={data.miniature?.today} />
 
       <Card className="p-3.5 sm:p-4">
         <div className="scrollbar-none flex gap-2.5 overflow-x-auto">
@@ -156,7 +159,10 @@ export default function Dashboard() {
                   <div key={v.variantId} className="group -mx-2 flex items-center gap-3 rounded-[12px] px-2 py-2.5 transition-colors hover:bg-surface-2">
                     <ProductThumb product={v} size={38} />
                     <Link to={`/admin/inventory/${v.variantId}`} className="min-w-0 flex-1">
-                      <b className="block truncate text-[13.5px] font-semibold">{v.name}</b>
+                      <b className="flex items-center gap-1.5 truncate text-[13.5px] font-semibold">
+                        <span className="truncate">{v.name}</span>
+                        {v.isMiniature && <MiniatureTag />}
+                      </b>
                       <span className={`mt-0.5 inline-flex items-center gap-1.5 text-[12px] font-medium ${v.status === 'out' ? 'text-bad' : 'text-warn'}`}>
                         <i className={`size-1.5 rounded-full ${v.status === 'out' ? 'bg-bad' : 'bg-warn'}`} />
                         {v.status === 'out' ? 'Out of stock' : `${describeStock(v)} left`}

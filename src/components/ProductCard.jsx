@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Package, ShoppingCart } from './icons.js';
-import { StockBadge } from './ui/Badge.jsx';
+import { MiniatureTag, StockBadge } from './ui/Badge.jsx';
 import { Glyph } from './ui/Media.jsx';
 import { useProductTheme } from '../hooks/useProductTheme.js';
 import { money } from '../utils/format.js';
@@ -83,6 +83,7 @@ export function ProductCard({ product, inCart, onAdd }) {
       <ProductImage product={product} theme={theme} inCart={inCart} />
       <div className="flex flex-col gap-1.5 px-0.5">
         <b className="line-clamp-2 text-[14px] leading-tight font-bold text-ink">{product.name}</b>
+        {product.isMiniature && <MiniatureTag className="self-start" />}
         <div className="flex items-center justify-between gap-1.5">
           <span className="tnum text-[15px] font-bold text-ink">{money(product.sellingPrice)}</span>
           <StockBadge status={product.status} />

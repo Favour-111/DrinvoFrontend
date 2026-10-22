@@ -7,7 +7,8 @@ import { AlertTriangle, ImagePlus, Lock, Plus, Trash2 } from '../../components/i
 import { Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { Field, FormField, Input, MoneyInput, Select, Switch } from '../../components/ui/Form.jsx';
+import { Field, FormField, Input, MoneyInput, Segmented, Select, Switch } from '../../components/ui/Form.jsx';
+import { MiniatureTag } from '../../components/ui/Badge.jsx';
 import { Combobox } from '../../components/ui/Combobox.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
@@ -16,51 +17,74 @@ import { useToast } from '../../context/ToastContext.jsx';
 import { productService, supplierService } from '../../services/index.js';
 import { money, num, pct, plural } from '../../utils/format.js';
 import { cn } from '../../utils/cn.js';
+import { formValuesFromSaved, marginsFor, packagingSummary, resolveMiniature } from '../../utils/miniature.js';
 
 const LARGE = ['pack', 'carton', 'crate'];
+const money2 = (n) => '₦' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 2 });
 const DEFAULT_N = { pack: 6, carton: 24, crate: 24 };
 
 // Disabled inputs submit undefined, so fall back instead of failing for units that are switched off
 const unitRow = z.object({ on: z.boolean(), n: z.coerce.number().int().min(0).catch(0), price: z.any().optional() });
 const openQtySchema = z.union([z.coerce.number().int().min(0), z.literal('')]).optional();
-const variantSchema = z
-  .object({
-    id: z.string().optional(),
-    size: z.string().trim().min(1, 'Enter a size, e.g. 50cl'),
-    costPrice: z.coerce.number({ invalid_type_error: 'Enter a cost price' }).min(0, 'Cost price must be 0 or more'),
-    sellingPrice: z.coerce.number({ invalid_type_error: 'Enter a selling price' }).positive('Enter a selling price'),
-    minimumSellingPrice: z.union([z.coerce.number().min(0, 'Must be 0 or more'), z.literal('')]).optional(),
-    pack: unitRow,
-    carton: unitRow,
-    crate: unitRow,
-    openBottle: openQtySchema,
-    openPack: openQtySchema,
-    openCarton: openQtySchema,
-    openCrate: openQtySchema,
-    lowQty: z.union([z.coerce.number().int().min(0), z.literal('')]).optional(),
-    lowUnit: z.string(),
-    stock: z.number().optional(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.sellingPrice < v.costPrice) ctx.addIssue({ code: 'custom', path: ['sellingPrice'], message: 'Selling price is below cost' });
-    if (Number(v.minimumSellingPrice) > v.sellingPrice) {
-      ctx.addIssue({ code: 'custom', path: ['minimumSellingPrice'], message: 'Minimum selling price cannot be higher than the default selling price.' });
-    }
-    for (const u of LARGE) if (v[u].on && !(v[u].n >= 1)) ctx.addIssue({ code: 'custom', path: [u, 'n'], message: `A ${u} must hold at least 1 bottle` });
-  });
-const schema = z.object({
-  name: z.string().trim().min(1, 'Enter a product name'),
-  brand: z.string().trim().optional(),
-  category: z.string().min(1, 'Choose a category'),
-  description: z.string().max(1000).optional(),
-  supplierId: z.string().optional(),
-  image: z
-    .string()
-    .trim()
-    .refine((v) => !v || /^https?:\/\/\S+$/i.test(v), 'Use an image link that starts with http:// or https://')
-    .optional(),
-  variants: z.array(variantSchema).min(1),
+const blankOrAmount = z.union([z.coerce.number().min(0, 'Must be 0 or more'), z.literal('')]).optional();
+const variantSchema = z.object({
+  id: z.string().optional(),
+  size: z.string().trim().min(1, 'Enter a size, e.g. 50cl'),
+  // Cost and selling price are per bottle. Whether they are required depends on the packaging type, so
+  // the checks live in the form-level refine below.
+  costPrice: z.coerce.number({ invalid_type_error: 'Enter a cost price' }).min(0, 'Cost price must be 0 or more'),
+  sellingPrice: blankOrAmount,
+  minimumSellingPrice: z.union([z.coerce.number().min(0, 'Must be 0 or more'), z.literal('')]).optional(),
+  pack: unitRow,
+  carton: unitRow,
+  crate: unitRow,
+  // Miniature only: packs per carton, and the pack and carton purchase costs (blank = calculated)
+  ppc: z.any().optional(),
+  packCost: blankOrAmount,
+  cartonCost: blankOrAmount,
+  openBottle: openQtySchema,
+  openPack: openQtySchema,
+  openCarton: openQtySchema,
+  openCrate: openQtySchema,
+  lowQty: z.union([z.coerce.number().int().min(0), z.literal('')]).optional(),
+  lowUnit: z.string(),
+  stock: z.number().optional(),
 });
+const schema = z
+  .object({
+    name: z.string().trim().min(1, 'Enter a product name'),
+    brand: z.string().trim().optional(),
+    category: z.string().min(1, 'Choose a category'),
+    packagingType: z.enum(['STANDARD', 'MINIATURE']),
+    description: z.string().max(1000).optional(),
+    supplierId: z.string().optional(),
+    image: z
+      .string()
+      .trim()
+      .refine((v) => !v || /^https?:\/\/\S+$/i.test(v), 'Use an image link that starts with http:// or https://')
+      .optional(),
+    variants: z.array(variantSchema).min(1),
+  })
+  .superRefine((vals, ctx) => {
+    const add = (path, message) => ctx.addIssue({ code: 'custom', path, message });
+    vals.variants.forEach((v, i) => {
+      const at = (...rest) => ['variants', i, ...rest];
+      if (Number(v.minimumSellingPrice) > Number(v.sellingPrice)) add(at('minimumSellingPrice'), 'Minimum selling price cannot be higher than the default selling price.');
+      if (vals.packagingType === 'MINIATURE') {
+        const r = resolveMiniature(miniatureInputs(v));
+        if (!(r.bottlesPerPack >= 1)) add(at('pack', 'n'), 'Enter how many bottles are in a pack (a whole number).');
+        if (!(r.packsPerCarton >= 1)) add(at('ppc'), 'Enter how many packs are in a carton (a whole number).');
+        if (!(r.price.bottle > 0)) add(at('sellingPrice'), 'Enter a selling price for the bottle, pack or carton.');
+        for (const u of ['bottle', 'pack', 'carton']) {
+          if (r.price[u] && r.cost[u] && r.price[u] < r.cost[u]) add(u === 'bottle' ? at('sellingPrice') : at(u, 'price'), 'Selling price is below cost');
+        }
+        return;
+      }
+      if (!(Number(v.sellingPrice) > 0)) add(at('sellingPrice'), 'Enter a selling price');
+      else if (Number(v.sellingPrice) < v.costPrice) add(at('sellingPrice'), 'Selling price is below cost');
+      for (const u of LARGE) if (v[u].on && !(v[u].n >= 1)) add(at(u, 'n'), `A ${u} must hold at least 1 bottle`);
+    });
+  });
 
 const newVariant = () => ({
   size: '',
@@ -70,6 +94,9 @@ const newVariant = () => ({
   pack: { on: false, n: 6, price: '' },
   carton: { on: true, n: 12, price: '' },
   crate: { on: false, n: 24, price: '' },
+  ppc: 12,
+  packCost: '',
+  cartonCost: '',
   openBottle: '',
   openPack: '',
   openCarton: '',
@@ -77,58 +104,92 @@ const newVariant = () => ({
   lowQty: '',
   lowUnit: 'carton',
 });
+/** Form values a miniature size's packaging and pricing are worked out from. */
+const miniatureInputs = (v) => ({
+  bottlesPerPack: v.pack?.n,
+  packsPerCarton: v.ppc,
+  bottlePrice: v.sellingPrice,
+  packPrice: v.pack?.price,
+  cartonPrice: v.carton?.price,
+  bottleCost: v.costPrice,
+  packCost: v.packCost,
+  cartonCost: v.cartonCost,
+});
+/** For a miniature, pack and carton are always on and the carton is packs-per-carton x bottles-per-pack. */
+const withMiniatureUnits = (v) => {
+  const { bottlesPerPack, bottlesPerCarton } = packagingSummary({ bottlesPerPack: v.pack?.n, packsPerCarton: v.ppc });
+  return { ...v, pack: { ...v.pack, on: true, n: bottlesPerPack }, carton: { ...v.carton, on: true, n: bottlesPerCarton }, crate: { ...v.crate, on: false } };
+};
 const convOf = (v, u) => (u === 'bottle' ? 1 : v?.[u]?.on ? Number(v[u].n) || 0 : 0);
 const OPEN_FIELD = { pack: 'openPack', carton: 'openCarton', crate: 'openCrate' };
 const openingTotalBottles = (v) =>
   (Number(v.openBottle) || 0) + LARGE.reduce((s, u) => s + (v[u]?.on ? (Number(v[OPEN_FIELD[u]]) || 0) * convOf(v, u) : 0), 0);
 
 function toForm(product, variants) {
+  const miniature = product.packagingType === 'MINIATURE';
   return {
     name: product.name,
     brand: product.brand,
     category: product.category,
+    packagingType: miniature ? 'MINIATURE' : 'STANDARD',
     description: product.description,
     supplierId: product.supplierId ? String(product.supplierId) : '',
     image: product.image,
-    variants: variants.map((v) => ({
-      id: v.variantId,
-      size: v.size,
-      costPrice: v.costPrice,
-      sellingPrice: v.sellingPrice,
-      minimumSellingPrice: v.minimumSellingPrice || '',
-      pack: { on: v.unitConversions.pack > 0, n: v.unitConversions.pack || 6, price: v.unitPrices.pack || '' },
-      carton: { on: v.unitConversions.carton > 0, n: v.unitConversions.carton || 12, price: v.unitPrices.carton || '' },
-      crate: { on: v.unitConversions.crate > 0, n: v.unitConversions.crate || 24, price: v.unitPrices.crate || '' },
-      openBottle: '',
-      openPack: '',
-      openCarton: '',
-      openCrate: '',
-      lowQty: v.lowStockThreshold,
-      lowUnit: 'bottle',
-      stock: v.quantity,
-    })),
+    variants: variants.map((v) => {
+      const packN = v.unitConversions.pack || 0;
+      const cartonN = v.unitConversions.carton || 0;
+      const m = formValuesFromSaved({ bottlesPerPack: packN, bottlesPerCarton: cartonN, sellingPrice: v.sellingPrice, costPrice: v.costPrice, unitPrices: v.unitPrices, unitCosts: v.unitCosts });
+      return {
+        id: v.variantId,
+        size: v.size,
+        costPrice: miniature ? m.bottleCost : v.costPrice,
+        sellingPrice: miniature ? m.bottlePrice : v.sellingPrice,
+        minimumSellingPrice: v.minimumSellingPrice || '',
+        pack: { on: packN > 0, n: packN || 6, price: (miniature ? m.packPrice : v.unitPrices.pack) || '' },
+        carton: { on: cartonN > 0, n: cartonN || 12, price: (miniature ? m.cartonPrice : v.unitPrices.carton) || '' },
+        crate: { on: v.unitConversions.crate > 0, n: v.unitConversions.crate || 24, price: v.unitPrices.crate || '' },
+        ppc: m.packsPerCarton || 12,
+        packCost: miniature ? m.packCost : '',
+        cartonCost: miniature ? m.cartonCost : '',
+        openBottle: '',
+        openPack: '',
+        openCarton: '',
+        openCrate: '',
+        lowQty: v.lowStockThreshold,
+        lowUnit: 'bottle',
+        stock: v.quantity,
+      };
+    }),
   };
 }
 
 function toPayload(values) {
+  const miniature = values.packagingType === 'MINIATURE';
   return {
     name: values.name,
     brand: values.brand || '',
     category: values.category,
+    packagingType: values.packagingType,
     description: values.description || '',
     image: values.image || '',
     supplierId: values.supplierId || null,
-    variants: values.variants.map((v) => ({
-      ...(v.id ? { id: v.id } : {}),
-      size: v.size,
-      costPrice: Number(v.costPrice),
-      sellingPrice: Number(v.sellingPrice),
-      minimumSellingPrice: Number(v.minimumSellingPrice) || 0,
-      unitConversions: Object.fromEntries(LARGE.map((u) => [u, v[u].on ? Number(v[u].n) : 0])),
-      unitPrices: Object.fromEntries(LARGE.map((u) => [u, v[u].on && v[u].price ? Number(v[u].price) : 0])),
-      lowStockThreshold: (Number(v.lowQty) || 0) * convOf(v, v.lowUnit),
-      ...(!v.id && openingTotalBottles(v) > 0 ? { openingStock: { quantity: openingTotalBottles(v), unit: 'bottle' } } : {}),
-    })),
+    variants: values.variants.map((raw) => {
+      const v = miniature ? withMiniatureUnits(raw) : raw;
+      const r = miniature ? resolveMiniature(miniatureInputs(raw)) : null;
+      return {
+        ...(v.id ? { id: v.id } : {}),
+        size: v.size,
+        costPrice: miniature ? r.cost.bottle : Number(v.costPrice),
+        sellingPrice: miniature ? r.price.bottle : Number(v.sellingPrice),
+        minimumSellingPrice: Number(v.minimumSellingPrice) || 0,
+        unitConversions: Object.fromEntries(LARGE.map((u) => [u, v[u].on ? Number(v[u].n) : 0])),
+        // A miniature saves the resolved pack and carton amounts (typed overrides kept as typed)
+        unitPrices: miniature ? { pack: r.price.pack, carton: r.price.carton, crate: 0 } : Object.fromEntries(LARGE.map((u) => [u, v[u].on && v[u].price ? Number(v[u].price) : 0])),
+        unitCosts: miniature ? { pack: r.cost.pack, carton: r.cost.carton, crate: 0 } : { pack: 0, carton: 0, crate: 0 },
+        lowStockThreshold: (Number(v.lowQty) || 0) * convOf(v, v.lowUnit),
+        ...(!v.id && openingTotalBottles(v) > 0 ? { openingStock: { quantity: openingTotalBottles(v), unit: 'bottle' } } : {}),
+      };
+    }),
   };
 }
 
@@ -211,30 +272,137 @@ function BulkPriceHelper({ form, path, targetField, units }) {
   );
 }
 
-function VariantBlock({ index, form, onRemove, productName }) {
+/** Packaging, cost and price entry for a miniature size: bottles per pack, packs per carton, and
+ * independent cost / selling prices for the bottle, pack and carton, with a live summary. */
+function MiniaturePackaging({ index, form, v }) {
+  const { register, formState } = form;
+  const p = `variants.${index}`;
+  const err = formState.errors.variants?.[index];
+  const r = resolveMiniature(miniatureInputs(v));
+  const margins = marginsFor(r);
+  const sum = packagingSummary({ bottlesPerPack: v.pack?.n, packsPerCarton: v.ppc });
+  const initial = formState.defaultValues?.variants?.[index];
+  const repacked = Boolean(v.id && initial && (Number(initial.pack?.n) !== Number(v.pack?.n) || Number(initial.ppc) !== Number(v.ppc)));
+  const entered = (x) => x !== '' && x != null && Number(x) > 0;
+  const auto = (typed, value) => (!entered(typed) && value ? `Calculated: ${money2(value)}` : undefined);
+  const levels = [
+    { key: 'bottle', label: 'Bottle', cost: `${p}.costPrice`, price: `${p}.sellingPrice`, typedCost: v.costPrice, typedPrice: v.sellingPrice, costErr: err?.costPrice, priceErr: err?.sellingPrice },
+    { key: 'pack', label: 'Pack', cost: `${p}.packCost`, price: `${p}.pack.price`, typedCost: v.packCost, typedPrice: v.pack?.price, costErr: err?.packCost, priceErr: err?.pack?.price },
+    { key: 'carton', label: 'Carton', cost: `${p}.cartonCost`, price: `${p}.carton.price`, typedCost: v.cartonCost, typedPrice: v.carton?.price, costErr: err?.cartonCost, priceErr: err?.carton?.price },
+  ];
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <div className="label mb-1">Packaging</div>
+        <p className="hint mb-2.5">Stock is counted in bottles. Say how many bottles are in a pack and how many packs are in a carton.</p>
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <Field label="Bottles per pack" htmlFor={`${p}-bpp`} error={err?.pack?.n?.message}>
+            <Input id={`${p}-bpp`} type="number" inputMode="numeric" min="1" step="1" error={err?.pack?.n} {...register(`${p}.pack.n`)} />
+          </Field>
+          <Field label="Packs per carton" htmlFor={`${p}-ppc`} error={err?.ppc?.message}>
+            <Input id={`${p}-ppc`} type="number" inputMode="numeric" min="1" step="1" error={err?.ppc} {...register(`${p}.ppc`)} />
+          </Field>
+        </div>
+        <div className="mt-3 rounded-[16px] border border-line-2 bg-surface px-3.5 py-3" aria-live="polite">
+          <b className="mb-1.5 block text-[12.5px] font-semibold text-ink-2">Packaging summary</b>
+          {sum.valid ? (
+            <ul className="grid gap-x-6 gap-y-1 text-[13px] text-ink-2 sm:grid-cols-2">
+              <li>1 bottle = 1 bottle</li>
+              <li>1 pack = {plural(sum.bottlesPerPack, 'bottle')}</li>
+              <li>1 carton = {plural(sum.packsPerCarton, 'pack')}</li>
+              <li>
+                Total bottles per carton = <b className="text-ink">{num(sum.bottlesPerCarton)}</b>
+              </li>
+            </ul>
+          ) : (
+            <p className="text-[13px] text-ink-3">Enter whole numbers above to see the packaging summary.</p>
+          )}
+        </div>
+        {repacked && (
+          <div className="mt-2.5 flex items-start gap-2 rounded-[14px] border border-warn/25 bg-warn-soft px-3.5 py-2.5 text-[12.5px] text-ink-2">
+            <AlertTriangle size={15} className="mt-0.5 flex-none text-warn" />
+            <span>
+              Stock is kept in bottles, so the <b>{plural(v.stock || 0, 'bottle')}</b> on hand will not change. Only how it is shown in packs and cartons, and how new sales, purchases and counts convert, changes. Past sales keep their original units.
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="label mb-1">Purchase cost &amp; selling price</div>
+        <p className="hint mb-2.5">Leave a pack or carton box empty to calculate it. Type an amount to override it, e.g. a discounted carton price or what your supplier really charges.</p>
+        <div className="grid gap-3">
+          {[
+            { id: 'cost', title: 'Purchase cost', field: 'cost', note: 'Staff never see this' },
+            { id: 'price', title: 'Selling price', field: 'price' },
+          ].map((row) => (
+            <div key={row.id} className="rounded-[16px] border border-line-2 bg-surface p-3">
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <b className="text-[13px] font-semibold">{row.title}</b>
+                {row.note && <small className="text-[11.5px] text-ink-3">{row.note}</small>}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                {levels.map((l) => {
+                  const name = l[row.field];
+                  const typed = row.field === 'cost' ? l.typedCost : l.typedPrice;
+                  const calculated = r[row.field][l.key];
+                  const error = row.field === 'cost' ? l.costErr : l.priceErr;
+                  const margin = row.field === 'price' ? margins[l.key] : null;
+                  return (
+                    <Field
+                      key={`${row.id}-${l.key}`}
+                      label={`${row.title} per ${l.label.toLowerCase()}`}
+                      htmlFor={`${p}-${row.id}-${l.key}`}
+                      error={error?.message}
+                      hint={auto(typed, calculated) || (margin != null ? `Margin ${money2(margin)} per ${l.key}` : undefined)}
+                    >
+                      <MoneyInput id={`${p}-${row.id}-${l.key}`} error={error} placeholder={calculated ? String(calculated) : '0'} {...register(name)} />
+                    </Field>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+        {r.price.bottle > 0 && r.price.pack > 0 && sum.valid && Math.abs(r.price.pack / sum.bottlesPerPack - r.price.bottle) > 0.01 && (
+          <p className="hint mt-2">
+            Pack price {money2(r.price.pack)} is {money2(r.price.pack / sum.bottlesPerPack)} per bottle, against {money2(r.price.bottle)} when sold singly.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VariantBlock({ index, form, onRemove, productName, miniature }) {
   const { register, watch, setValue, formState } = form;
   const v = watch(`variants.${index}`);
   const err = formState.errors.variants?.[index];
-  const units = ['bottle', ...LARGE.filter((u) => v[u]?.on)];
-  const bulkUnits = LARGE.filter((u) => v[u]?.on && Number(v[u].n) > 0).map((u) => ({ key: u, n: Number(v[u].n) }));
+  // For a miniature, pack and carton are always on and the carton size follows packs-per-carton
+  const ev = miniature ? withMiniatureUnits(v) : v;
+  const units = ['bottle', ...LARGE.filter((u) => ev[u]?.on)];
+  const bulkUnits = LARGE.filter((u) => ev[u]?.on && Number(ev[u].n) > 0).map((u) => ({ key: u, n: Number(ev[u].n) }));
   const margin = v.costPrice && v.sellingPrice ? (v.sellingPrice - v.costPrice) / v.sellingPrice : null;
   const maxDiscount = v.sellingPrice && Number(v.minimumSellingPrice) > 0 ? Math.max(0, v.sellingPrice - Number(v.minimumSellingPrice)) : null;
   const p = `variants.${index}`;
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-line bg-surface-2 p-4">
       <div className="flex items-center justify-between">
-        <b className="text-[14px]">{v.size ? `${productName || 'Product'} ${v.size}` : `Size ${index + 1}`}</b>
+        <span className="flex items-center gap-2">
+          <b className="text-[14px]">{v.size ? `${productName || 'Product'} ${v.size}` : `Size ${index + 1}`}</b>
+          {miniature && <MiniatureTag />}
+        </span>
         {onRemove && (
           <Button size="sm" variant="ghost" className="text-bad" icon={Trash2} onClick={onRemove}>
             Remove
           </Button>
         )}
       </div>
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={cn('grid gap-3.5 sm:grid-cols-2', !miniature && 'lg:grid-cols-4')}>
         <div>
           <FormField label="Size" name={`${p}.size`} register={register} errors={formState.errors} placeholder="e.g. 50cl" />
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {['75cl', '1L', '37.5cl'].map((s) => (
+            {(miniature ? ['3cl', '5cl', '10cl'] : ['75cl', '1L', '37.5cl']).map((s) => (
               <button
                 key={s}
                 type="button"
@@ -249,11 +417,13 @@ function VariantBlock({ index, form, onRemove, productName }) {
             ))}
           </div>
         </div>
-        <div>
-          <FormField label="Cost price per bottle" name={`${p}.costPrice`} as="money" register={register} errors={formState.errors} placeholder="650" />
-          <BulkPriceHelper form={form} path={p} targetField="costPrice" units={bulkUnits} />
-        </div>
-        <div>
+        {!miniature && (
+          <div>
+            <FormField label="Cost price per bottle" name={`${p}.costPrice`} as="money" register={register} errors={formState.errors} placeholder="650" />
+            <BulkPriceHelper form={form} path={p} targetField="costPrice" units={bulkUnits} />
+          </div>
+        )}
+        {!miniature && <div>
           <FormField
             label="Selling price per bottle"
             name={`${p}.sellingPrice`}
@@ -264,7 +434,7 @@ function VariantBlock({ index, form, onRemove, productName }) {
             hint={margin !== null && margin >= 0 ? `Margin ${pct(margin * 100)} · ${money(v.sellingPrice - v.costPrice)} per bottle` : undefined}
           />
           <BulkPriceHelper form={form} path={p} targetField="sellingPrice" units={bulkUnits} />
-        </div>
+        </div>}
         <div>
           <FormField
             label="Minimum selling price"
@@ -279,6 +449,9 @@ function VariantBlock({ index, form, onRemove, productName }) {
         </div>
       </div>
 
+      {miniature ? (
+        <MiniaturePackaging index={index} form={form} v={v} />
+      ) : (
       <div>
         <div className="label mb-1">Unit conversion</div>
         <p className="hint mb-2.5">Stock is counted in bottles. Turn on each way you sell this size and say how many bottles it holds.</p>
@@ -339,6 +512,7 @@ function VariantBlock({ index, form, onRemove, productName }) {
         </div>
         <p className="hint mt-2">Leave a unit price empty to charge bottle price × bottles in the unit.</p>
       </div>
+      )}
 
       <div className="grid gap-3.5 sm:grid-cols-2">
         {v.id ? (
@@ -346,7 +520,7 @@ function VariantBlock({ index, form, onRemove, productName }) {
             <div className="input flex items-center bg-surface-2">{plural(v.stock, 'bottle')}</div>
           </Field>
         ) : (
-          <Field label="Opening stock" hint={`= ${plural(openingTotalBottles(v), 'bottle')} total`}>
+          <Field label="Opening stock" hint={`= ${plural(openingTotalBottles(ev), 'bottle')} total`}>
             <div className="flex flex-wrap gap-2">
               {units.map((u) => (
                 <div key={u} className="min-w-[88px] flex-1">
@@ -359,7 +533,7 @@ function VariantBlock({ index, form, onRemove, productName }) {
             </div>
           </Field>
         )}
-        <Field label="Low stock alert at" hint={`Alert when stock falls to ${plural((Number(v.lowQty) || 0) * convOf(v, v.lowUnit), 'bottle')}`}>
+        <Field label="Low stock alert at" hint={`Alert when stock falls to ${plural((Number(v.lowQty) || 0) * convOf(ev, v.lowUnit), 'bottle')}`}>
           <div className="flex gap-2">
             <Input type="number" min="0" placeholder="10" aria-label="Low stock threshold" {...register(`${p}.lowQty`)} />
             <Select className="w-[130px]" aria-label="Low stock unit" {...register(`${p}.lowUnit`)}>
@@ -406,7 +580,7 @@ export default function ProductForm() {
 
   const form = useForm({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', brand: '', category: 'Soft Drink', description: '', supplierId: '', image: '', variants: [newVariant()] },
+    defaultValues: { name: '', brand: '', category: 'Soft Drink', packagingType: 'STANDARD', description: '', supplierId: '', image: '', variants: [newVariant()] },
   });
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'variants' });
 
@@ -415,6 +589,25 @@ export default function ProductForm() {
   }, [existing.data, form]);
 
   const values = form.watch();
+  const miniature = values.packagingType === 'MINIATURE';
+
+  // Switching type only re-arranges the form; it never touches saved stock. A miniature always sells by
+  // the pack and carton, so those are switched on (keeping any existing pack size / packs-per-carton).
+  const setPackagingType = (type) => {
+    if (type === values.packagingType) return;
+    form.setValue('packagingType', type, { shouldDirty: true, shouldValidate: true });
+    if (type !== 'MINIATURE') return;
+    values.variants.forEach((v, i) => {
+      // A new size starts at the usual 12 x 12; an existing size keeps its saved pack and carton sizes
+      const saved = Boolean(v.id);
+      const pack = (saved && Number(v.pack?.on ? v.pack.n : 0)) || 12;
+      const carton = saved && v.carton?.on ? Number(v.carton.n) : 0;
+      form.setValue(`variants.${i}.pack`, { ...v.pack, on: true, n: pack }, { shouldDirty: true });
+      form.setValue(`variants.${i}.crate`, { ...v.crate, on: false }, { shouldDirty: true });
+      form.setValue(`variants.${i}.ppc`, carton && carton % pack === 0 ? carton / pack : 12, { shouldDirty: true });
+      form.setValue(`variants.${i}.lowUnit`, 'bottle', { shouldDirty: true });
+    });
+  };
 
   // De-duplicated against the current typed name as the admin types it, so a near-identical
   // product (e.g. retyping "Coca-Cola" as a new entry instead of adding a size to the existing
@@ -539,6 +732,30 @@ export default function ProductForm() {
                   />
                 </Field>
               </div>
+              <Field
+                label="Product packaging type"
+                hint={
+                  miniature
+                    ? 'Miniatures are sold by the bottle, pack or carton. Stock is kept in bottles.'
+                    : 'Standard drinks work as they always have. Choose Miniature for small bottles sold in packs and cartons.'
+                }
+              >
+                <Segmented
+                  label="Product packaging type"
+                  value={values.packagingType}
+                  onChange={setPackagingType}
+                  options={[
+                    { value: 'STANDARD', label: 'Standard' },
+                    { value: 'MINIATURE', label: 'Miniature' },
+                  ]}
+                />
+              </Field>
+              {edit && existing.data?.product.packagingType !== values.packagingType && (
+                <div className="flex items-start gap-2 rounded-[14px] border border-warn/25 bg-warn-soft px-3.5 py-2.5 text-[12.5px] text-ink-2">
+                  <AlertTriangle size={15} className="mt-0.5 flex-none text-warn" />
+                  <span>Changing the packaging type does not change the stock you have. It only changes how this product is set up, shown and sold.</span>
+                </div>
+              )}
               <FormField label="Description" name="description" as="textarea" register={form.register} errors={form.formState.errors} placeholder="Optional notes, e.g. returnable bottle" />
               <Field label="Image">
                 <label className="relative flex cursor-pointer items-center gap-3.5 rounded-[14px] border-[1.5px] border-dashed border-line bg-surface-2 p-3.5">
@@ -572,10 +789,10 @@ export default function ProductForm() {
             </div>
           </Section>
 
-          <Section n={2} title="Sizes, pricing & units" text="Each size keeps its own cost, selling price, stock and conversions.">
+          <Section n={2} title={miniature ? 'Sizes, packaging & pricing' : 'Sizes, pricing & units'} text={miniature ? 'Each size keeps its own packaging, purchase costs, selling prices and stock.' : 'Each size keeps its own cost, selling price, stock and conversions.'}>
             <div className="grid gap-4">
               {fields.map((f, i) => (
-                <VariantBlock key={f.id} index={i} form={form} productName={name} onRemove={fields.length > 1 && !values.variants[i]?.id ? () => remove(i) : null} />
+                <VariantBlock key={f.id} index={i} form={form} productName={name} miniature={miniature} onRemove={fields.length > 1 && !values.variants[i]?.id ? () => remove(i) : null} />
               ))}
               <Button icon={Plus} className="justify-self-start" onClick={() => append(newVariant())}>
                 Add another size
@@ -593,7 +810,10 @@ export default function ProductForm() {
             <div className="mb-3.5 flex items-center gap-3">
               <ProductThumb product={{ image: values.image, color: existing.data?.product.color }} size={48} />
               <div>
-                <b className="block font-semibold">{name || 'Product name'}</b>
+                <b className="flex items-center gap-2 font-semibold">
+                  {name || 'Product name'}
+                  {miniature && <MiniatureTag />}
+                </b>
                 <small className="text-[12px] text-ink-3">{values.category}</small>
               </div>
             </div>
@@ -602,11 +822,13 @@ export default function ProductForm() {
                 <div className="min-w-0 flex-1">
                   <b className="block font-semibold">{v.size || 'Size'}</b>
                   <small className="text-[12.5px] text-ink-3">
-                    {LARGE.filter((u) => v[u]?.on).map((u) => `1 ${u} = ${v[u].n}`).join(' · ') || 'Bottles only'}
+                    {(miniature ? ['pack', 'carton'] : LARGE.filter((u) => v[u]?.on))
+                      .map((u) => `1 ${u} = ${miniature ? withMiniatureUnits(v)[u].n || '?' : v[u].n}`)
+                      .join(' · ') || 'Bottles only'}
                   </small>
                 </div>
                 <div className="text-right">
-                  <b className="tnum block font-semibold">{v.sellingPrice ? money(v.sellingPrice) : '—'}</b>
+                  <b className="tnum block font-semibold">{(miniature ? resolveMiniature(miniatureInputs(v)).price.bottle : v.sellingPrice) ? money(miniature ? resolveMiniature(miniatureInputs(v)).price.bottle : v.sellingPrice) : '—'}</b>
                   <small className="text-[12px] text-ink-3">per bottle</small>
                 </div>
               </div>

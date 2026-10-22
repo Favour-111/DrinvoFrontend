@@ -4,7 +4,7 @@ import { Bottle, SlidersHorizontal, Truck } from '../../components/icons.js';
 import { Chips, Page, PageHeader } from '../../components/ui/Nav.jsx';
 import { Card, CardHeader, DetailList } from '../../components/ui/Card.jsx';
 import { Button, ButtonLink } from '../../components/ui/Button.jsx';
-import { StockBadge } from '../../components/ui/Badge.jsx';
+import { MiniatureTag, StockBadge } from '../../components/ui/Badge.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { MovementsTable } from '../../components/MovementsTable.jsx';
@@ -57,7 +57,10 @@ export default function InventoryDetail() {
         <div className="flex flex-wrap items-center gap-4">
           <ProductThumb product={v} size={60} />
           <div>
-            <h1 className="text-[22px] font-bold sm:text-[24px]">{v.name}</h1>
+            <h1 className="flex flex-wrap items-center gap-2 text-[22px] font-bold sm:text-[24px]">
+              {v.name}
+              {v.isMiniature && <MiniatureTag />}
+            </h1>
             <p className="mt-1 text-[13.5px] text-ink-3">
               {v.brand} · {v.category}
             </p>

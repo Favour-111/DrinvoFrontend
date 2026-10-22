@@ -4,7 +4,7 @@ import { ArrowRight, CalendarDays, Check, ClipboardList, Package, RotateCcw, Sea
 import { Page, Chips } from '../../components/ui/Nav.jsx';
 import { Card, StatBar } from '../../components/ui/Card.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { Badge } from '../../components/ui/Badge.jsx';
+import { Badge, MiniatureTag } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { ConfirmDialog } from '../../components/ui/Modal.jsx';
@@ -43,7 +43,10 @@ function CountRow({ product, value, onChange }) {
       <div className="flex min-w-0 items-center gap-3">
         <ProductThumb product={product} size={44} />
         <div className="min-w-0">
-          <b className="block truncate text-[14px] font-semibold">{product.name}</b>
+          <b className="flex items-center gap-1.5 text-[14px] font-semibold">
+            <span className="truncate">{product.name}</span>
+            {product.isMiniature && <MiniatureTag className="flex-none" />}
+          </b>
           <small className="block truncate text-[12px] text-ink-3">{conversionText}</small>
         </div>
       </div>

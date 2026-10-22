@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Calendar, Check, Pencil, Receipt, Search, ShoppingCart, Trash2, UserPlus, X } from '../../components/icons.js';
 import { Chips } from '../../components/ui/Nav.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { PAYMENT_ICON } from '../../components/ui/Badge.jsx';
+import { MiniatureTag, PAYMENT_ICON } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { Field, Input, MoneyInput, Segmented, Stepper } from '../../components/ui/Form.jsx';
 import { ConfirmDialog } from '../../components/ui/Modal.jsx';
@@ -296,7 +296,10 @@ export default function NewSale() {
                       <ProductThumb product={p} size={56} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <b className="block truncate text-[14.5px] font-semibold">{p.name}</b>
+                      <b className="flex items-center gap-1.5 text-[14.5px] font-semibold">
+                        <span className="truncate">{p.name}</span>
+                        {p.isMiniature && <MiniatureTag className="flex-none" />}
+                      </b>
                       <PriceEditor product={p} unit={l.unit} override={l.priceOverride} onChange={(priceOverride) => cart.update(l.key, { priceOverride })} />
                     </div>
                     <div className="flex flex-none flex-col items-end gap-2">
@@ -311,12 +314,15 @@ export default function NewSale() {
                       label="Selling unit"
                       value={l.unit}
                       onChange={(unit) => cart.update(l.key, { unit, priceOverride: undefined })}
-                      options={units.map((u) => ({ value: u, label: UNIT_LABEL[u], hint: u !== 'bottle' ? `×${conversionFor(p, u)}` : undefined }))}
+                      options={units.map((u) => ({ value: u, label: UNIT_LABEL[u], hint: p.isMiniature ? money(priceFor(p, u)) : u !== 'bottle' ? `×${conversionFor(p, u)}` : undefined }))}
                     />
                   )}
                   <div className="flex items-center justify-between gap-2">
                     <Stepper value={l.quantity} onChange={(quantity) => cart.update(l.key, { quantity })} label={`Quantity of ${p.name}`} />
-                    <span className="tnum text-[12.5px] text-ink-3">{l.quantity} × {money(linePrice(l))}</span>
+                    <span className="tnum text-right text-[12.5px] text-ink-3">
+                      {l.quantity} {l.unit}{l.quantity === 1 ? '' : 's'} × {money(linePrice(l))}
+                      {p.isMiniature && l.unit !== 'bottle' && <small className="block text-[11.5px]">deducts {l.quantity * conversionFor(p, l.unit)} bottles</small>}
+                    </span>
                   </div>
                   {short && (
                     <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-bad">

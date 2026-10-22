@@ -25,6 +25,11 @@ export function Tag({ children, className }) {
   return <span className={cn('inline-flex h-6 items-center rounded-[7px] bg-surface-3 px-2.5 text-[12px] font-medium whitespace-nowrap text-ink-2', className)}>{children}</span>;
 }
 
+/** Small marker for miniature-packaged products in lists, search results and the POS. */
+export function MiniatureTag({ className }) {
+  return <span className={cn('inline-flex h-[18px] items-center rounded-full bg-info-soft px-2 text-[10.5px] font-semibold tracking-wide whitespace-nowrap text-info uppercase', className)}>Miniature</span>;
+}
+
 export function StockBadge({ status }) {
   const s = STOCK_STATUS[status] || STOCK_STATUS.in;
   return <Badge tone={s.tone}>{s.label}</Badge>;

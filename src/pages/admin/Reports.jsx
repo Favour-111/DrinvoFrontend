@@ -6,7 +6,7 @@ import { Page, PageHeader, Tabs, RANGE_OPTIONS } from '../../components/ui/Nav.j
 import { Card, CardHeader } from '../../components/ui/Card.jsx';
 import { Sparkline } from '../../components/ui/Sparkline.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { movementLabel } from '../../components/ui/Badge.jsx';
+import { MiniatureTag, movementLabel } from '../../components/ui/Badge.jsx';
 import { ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { SalesChart, ChartLegend } from '../../components/charts/SalesChart.jsx';
@@ -16,7 +16,7 @@ import { SalesReportDoc, StockReportDoc } from '../../components/reports/ReportD
 import { useApi } from '../../hooks/useApi.js';
 import { usePrint } from '../../hooks/usePrint.js';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { money, num, pct, PAYMENT_LABEL } from '../../utils/format.js';
+import { money, num, pct, plural, PAYMENT_LABEL } from '../../utils/format.js';
 import { cn } from '../../utils/cn.js';
 import { reportService } from '../../services/index.js';
 
@@ -66,6 +66,56 @@ function SmallStat({ label, value, icon: Icon, tone = 'neutral' }) {
   );
 }
 
+/** Miniature drinks for the period. A subset of the totals above (never added to them). */
+function MiniatureReport({ m, rangeLabel }) {
+  if (!m || (!m.stock?.variantCount && !m.bottlesSold)) return null;
+  const stock = m.stock || {};
+  const equivalent = [stock.cartons && plural(stock.cartons, 'carton'), stock.packs && plural(stock.packs, 'pack'), stock.looseBottles && plural(stock.looseBottles, 'bottle')].filter(Boolean).join(' · ');
+  const stats = [
+    ['Sold', `${plural(m.byUnit.carton, 'carton')} · ${plural(m.byUnit.pack, 'pack')} · ${plural(m.byUnit.bottle, 'bottle')}`],
+    ['Bottles deducted', num(m.bottlesSold)],
+    ['Revenue', money(m.revenue)],
+    ['Cost of goods', money(m.cost)],
+    ['Gross profit', money(m.grossProfit)],
+    ['In stock', `${num(stock.totalBottles)} bottles${equivalent ? ` · ${equivalent}` : ''}`],
+    ['Low / out of stock', `${stock.lowStock || 0} / ${stock.outOfStock || 0}`],
+  ];
+  return (
+    <Card>
+      <CardHeader
+        title={
+          <span className="flex items-center gap-2.5">
+            <MiniatureTag />
+            Miniature drinks
+          </span>
+        }
+        action={<span className="hint">{rangeLabel} · included in the totals above</span>}
+      />
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-[12px] text-ink-3">{label}</dt>
+            <dd className="tnum text-[14.5px] font-semibold">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {m.byShop?.length > 1 && (
+        <div className="mt-4 border-t border-line-2 pt-3">
+          <b className="mb-1.5 block text-[12.5px] font-semibold text-ink-2">Stock by branch</b>
+          <div className="grid gap-x-6 sm:grid-cols-2">
+            {m.byShop.map((b) => (
+              <div key={b.shopId} className="flex items-center justify-between border-b border-line-2 py-1.5 text-[13.5px] last:border-0">
+                <span className="text-ink-2">{b.shopName}</span>
+                <b className="tnum">{plural(b.bottles, 'bottle')}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function SalesTab({ data, sort, setSort, navigate }) {
   const products = useMemo(() => {
     if (!data) return [];
@@ -95,6 +145,7 @@ function SalesTab({ data, sort, setSort, navigate }) {
         <SmallStat label="Refunds" value={money(t.refunds)} icon={RotateCcw} tone="bad" />
         <SmallStat label="Credit outstanding" value={money(t.creditOutstanding)} icon={Layers} tone="warn" />
       </div>
+      <MiniatureReport m={data.miniature} rangeLabel={LABELS[data.range.range] || 'this period'} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
         <Card>
