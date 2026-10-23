@@ -22,9 +22,7 @@ import MySales from './pages/staff/MySales.jsx';
 import MySale from './pages/staff/MySale.jsx';
 import StaffInventory from './pages/staff/StaffInventory.jsx';
 import StaffCustomers from './pages/staff/Customers.jsx';
-import StockCount from './pages/staff/StockCount.jsx';
 import SharePrices from './pages/staff/SharePrices.jsx';
-import OnDemandPurchases from './pages/staff/OnDemandPurchases.jsx';
 
 // Admin pages
 const Dashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
@@ -109,9 +107,7 @@ export default function App() {
                   <Route path="sales" element={<MySales />} />
                   <Route path="sales/:id" element={<MySale />} />
                   <Route path="inventory" element={<StaffInventory />} />
-                  <Route path="count" element={<StockCount />} />
                   <Route path="share-prices" element={<SharePrices />} />
-                  <Route path="on-demand-purchases" element={<OnDemandPurchases />} />
                   <Route path="customers" element={<StaffCustomers />} />
                   <Route path="profile" element={<Profile staff />} />
                   <Route path="*" element={<NotFound />} />

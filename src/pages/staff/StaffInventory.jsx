@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowLeftRight, Ban, ClipboardList, LayoutGrid, MessageCircle, Package, PackageSearch, Search, SlidersHorizontal, Undo2 } from '../../components/icons.js';
+import { AlertTriangle, Ban, LayoutGrid, MessageCircle, Package, Search, SlidersHorizontal } from '../../components/icons.js';
 import { Page } from '../../components/ui/Nav.jsx';
 import { Button } from '../../components/ui/Button.jsx';
 import { Card, StatBar } from '../../components/ui/Card.jsx';
@@ -8,10 +8,7 @@ import { StockBadge } from '../../components/ui/Badge.jsx';
 import { EmptyState, ErrorState, PageSkeleton } from '../../components/ui/Feedback.jsx';
 import { ProductThumb } from '../../components/ui/Media.jsx';
 import { Select } from '../../components/ui/Form.jsx';
-import { TransferModal } from '../../components/modals/StockModals.jsx';
-import { BorrowModal } from '../../components/modals/BorrowModals.jsx';
 import { useApi } from '../../hooks/useApi.js';
-import { useAuth } from '../../context/AuthContext.jsx';
 import { inventoryService } from '../../services/index.js';
 import { money, num, plural } from '../../utils/format.js';
 import { describeStock, UNIT_LABEL } from '../../utils/units.js';
@@ -24,17 +21,14 @@ const SORTS = {
 };
 
 /** Stock view for staff: read-only for levels (the API strips cost fields for this role), but
- * staff can record a transfer to move stock between shops and lend or borrow drinks. */
+ * counts, transfers, lending/borrowing and on-demand purchases are admin-only. */
 export default function StaffInventory() {
-  const { shops } = useAuth();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
   const [category, setCategory] = useState('');
   const [sort, setSort] = useState('name');
   const [view, setView] = useState('list');
-  const [transferring, setTransferring] = useState(false);
-  const [borrowing, setBorrowing] = useState(false);
   const { data, error, reload } = useApi(() => inventoryService.list(), []);
 
   const all = data?.items || [];
@@ -61,27 +55,13 @@ export default function StaffInventory() {
           </span>
           <div>
             <h1 className="text-[26px] font-extrabold tracking-[-0.025em]">Inventory</h1>
-            <p className="mt-0.5 text-[13.5px] text-ink-3">Check availability and take action on what’s in stock.</p>
+            <p className="mt-0.5 text-[13.5px] text-ink-3">Check what’s in stock and share prices.</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <ActionChip icon={MessageCircle} tone="ok" onClick={() => navigate('/staff/share-prices')}>
             Share Prices
           </ActionChip>
-          <ActionChip icon={ClipboardList} tone="brand" onClick={() => navigate('/staff/count')}>
-            Physical Count
-          </ActionChip>
-          <ActionChip icon={Undo2} tone="info" onClick={() => setBorrowing(true)}>
-            Borrow / Lend
-          </ActionChip>
-          <ActionChip icon={PackageSearch} tone="profit" onClick={() => navigate('/staff/on-demand-purchases')}>
-            On-Demand Purchase
-          </ActionChip>
-          {shops.length > 1 && (
-            <ActionChip icon={ArrowLeftRight} tone="warn" onClick={() => setTransferring(true)}>
-              Transfer Stock
-            </ActionChip>
-          )}
         </div>
       </div>
 
@@ -215,8 +195,6 @@ export default function StaffInventory() {
         </Card>
       )}
 
-      <TransferModal open={transferring} onClose={() => setTransferring(false)} onDone={reload} />
-      <BorrowModal open={borrowing} onClose={() => setBorrowing(false)} onDone={reload} />
     </Page>
   );
 }
