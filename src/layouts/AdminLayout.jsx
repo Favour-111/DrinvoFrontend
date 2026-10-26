@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Activity, AlertTriangle, ArrowLeftRight, BarChart3, Bell, Bottle, Check, ChevronDown, ChevronRight, ClipboardList, LayoutGrid, LogOut, Menu, MessageCircle, Package, PackageSearch, Plus, Receipt, Search, Settings, Store, Truck, Undo2, User, Users, Wallet, X,
+  Activity, AlertTriangle, ArrowLeftRight, BarChart3, Bell, Bottle, Check, ChevronDown, ChevronRight, ClipboardList, LayoutGrid, LogOut, Menu, MessageCircle, Package, PackageSearch, PanelLeftClose, PanelLeftOpen, Plus, Receipt, Search, Settings, Store, Truck, Undo2, User, Users, Wallet, X,
 } from '../components/icons.js';
 import { Avatar, Logo, ProductThumb } from '../components/ui/Media.jsx';
 import { PoweredBy } from '../components/PoweredBy.jsx';
@@ -14,21 +14,38 @@ import { inventoryService, stockCountService } from '../services/index.js';
 import { describeStock } from '../utils/units.js';
 import { cn } from '../utils/cn.js';
 
-// Flat list: the daily pages first, business admin after the divider
+// Grouped like the design: a small heading above each block of pages
 const NAV = [
+  ['Overview', [['/admin/dashboard', 'Dashboard', LayoutGrid]]],
   [
-    ['/admin/dashboard', 'Dashboard', LayoutGrid],
-    ['/admin/sales', 'Sales', Receipt],
-    ['/admin/customers', 'Customers', Wallet],
-    ['/admin/products', 'Products', Bottle],
-    ['/admin/inventory', 'Inventory', Package],
-    ['/admin/transfers', 'Transfers', ArrowLeftRight],
-    ['/admin/stock-counts', 'Physical Counts', ClipboardList],
-    ['/admin/borrowings', 'Borrowed Drinks', Undo2],
-    ['/admin/on-demand-purchases', 'On-Demand Purchases', PackageSearch],
-    ['/admin/share-prices', 'Share Prices', MessageCircle],
+    'Stock',
+    [
+      ['/admin/products', 'Products', Bottle],
+      ['/admin/inventory', 'Inventory', Package],
+      ['/admin/transfers', 'Transfers', ArrowLeftRight],
+      ['/admin/stock-counts', 'Physical Counts', ClipboardList],
+      ['/admin/suppliers', 'Suppliers', Truck],
+    ],
   ],
-  [['/admin/suppliers', 'Suppliers', Truck], ['/admin/staff', 'Staff', Users], ['/admin/reports', 'Reports', BarChart3], ['/admin/activity', 'Activity', Activity], ['/admin/settings', 'Settings', Settings]],
+  [
+    'Sales',
+    [
+      ['/admin/sales', 'Sales', Receipt],
+      ['/admin/customers', 'Customers', Wallet],
+      ['/admin/borrowings', 'Borrowed Drinks', Undo2],
+      ['/admin/on-demand-purchases', 'On-Demand Purchases', PackageSearch],
+      ['/admin/share-prices', 'Share Prices', MessageCircle],
+    ],
+  ],
+  [
+    'Business',
+    [
+      ['/admin/staff', 'Staff', Users],
+      ['/admin/reports', 'Reports', BarChart3],
+      ['/admin/activity', 'Activity', Activity],
+      ['/admin/settings', 'Settings', Settings],
+    ],
+  ],
 ];
 const TITLES = {
   dashboard: 'Dashboard', products: 'Products', inventory: 'Inventory', transfers: 'Stock Transfers', 'stock-counts': 'Physical Stock Counts', borrowings: 'Borrowed Drinks', 'on-demand-purchases': 'On-Demand Purchases', 'share-prices': 'Share Prices', suppliers: 'Suppliers', sales: 'Sales', customers: 'Customers',
@@ -64,6 +81,23 @@ const Pop = ({ className, children, width = 'w-72' }) => (
 export default function AdminLayout() {
   const { user, shop, shops, switchShop, refresh, logout } = useAuth();
   const [drawer, setDrawer] = useState(false);
+  // Desktop only: collapse the sidebar down to its icons. Remembered across visits.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('admin-sidebar-collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleCollapsed = () =>
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem('admin-sidebar-collapsed', c ? '0' : '1');
+      } catch {
+        /* storage unavailable: the choice just won't persist */
+      }
+      return !c;
+    });
   const [alerts, setAlerts] = useState([]);
   const [countAlerts, setCountAlerts] = useState([]);
   const [addingShop, setAddingShop] = useState(false);
@@ -108,41 +142,53 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[260px_minmax(0,1fr)]">
+    <div className="min-h-dvh">
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col gap-0.5 overflow-auto border-r border-line bg-surface px-4 pt-[calc(20px+env(safe-area-inset-top))] pb-4 shadow-pop transition-transform lg:sticky lg:top-0 lg:h-dvh lg:w-auto lg:shadow-none lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col gap-0.5 overflow-y-auto overflow-x-hidden border-r border-line bg-surface px-4 pt-[calc(20px+env(safe-area-inset-top))] pb-4 shadow-pop transition-[transform,width] duration-200 lg:shadow-none lg:translate-x-0',
+          collapsed ? 'lg:w-[76px] lg:px-3' : 'lg:w-[260px]',
           drawer ? 'translate-x-0' : '-translate-x-[102%]'
         )}
         aria-label="Main navigation"
       >
-        <div className="flex items-center justify-between px-2 pb-5">
-          <Logo />
+        <div className={cn('flex items-center justify-between px-2 pb-5', collapsed && 'lg:flex-col lg:gap-3 lg:px-0')}>
+          <Logo className={collapsed ? 'lg:hidden' : undefined} />
+          {collapsed && <Logo compact className="hidden lg:flex" />}
           <IconButton icon={X} label="Close menu" className="lg:hidden" onClick={() => setDrawer(false)} />
+          <IconButton icon={collapsed ? PanelLeftOpen : PanelLeftClose} label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} size={34} className="max-lg:hidden" onClick={toggleCollapsed} />
         </div>
-        {NAV.map((items, gi) => (
-          <div key={gi} className={cn('flex flex-col gap-0.5', gi > 0 && 'mt-3 border-t border-line pt-3')}>
+        {NAV.map(([heading, items]) => (
+          <div key={heading} className="flex flex-col gap-0.5">
+            <div className={cn('flex items-center gap-2.5 px-2.5 pt-4 pb-2 text-[11.5px] font-medium tracking-[0.04em] text-ink-3', collapsed && 'lg:px-0 lg:pt-3 lg:pb-1.5')}>
+              <span className={cn(collapsed && 'lg:hidden')}>{heading}</span>
+              <i className="h-px flex-1 bg-line-2" />
+            </div>
             {items.map(([to, label, Icon]) => (
               <NavLink
                 key={to}
                 to={to}
+                title={collapsed ? label : undefined}
+                aria-label={collapsed ? label : undefined}
                 className={({ isActive }) =>
                   cn(
-                    'relative flex h-[40px] items-center gap-3 rounded-[11px] px-3 text-[13.5px] font-medium transition-colors duration-150',
-                    isActive ? 'bg-brand-soft text-brand-ink before:absolute before:top-2 before:bottom-2 before:-left-4 before:w-[3px] before:rounded-r-full before:bg-brand' : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+                    'relative flex h-[42px] items-center gap-3 rounded-[12px] px-3 text-[14px] font-medium transition-colors duration-150',
+                    collapsed && 'lg:justify-center lg:px-0',
+                    isActive
+                      ? 'bg-brand text-on-brand shadow-[0_8px_18px_-10px_var(--brand)]'
+                      : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
-                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className={cn('flex-none', isActive && 'text-brand')} />
-                    <span className="flex-1">{label}</span>
+                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} className="flex-none" />
+                    <span className={cn('flex-1', collapsed && 'lg:hidden')}>{label}</span>
                     {to.endsWith('inventory') && alerts.length > 0 && (
-                      <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'inventory' ? 'bg-brand/15 text-brand-ink' : 'bg-warn-soft text-warn')}>{alerts.length}</em>
+                      <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', collapsed && 'lg:absolute lg:top-0.5 lg:right-1 lg:h-4 lg:min-w-4 lg:px-1 lg:text-[10px]', section === 'inventory' ? 'bg-white/20 text-on-brand' : 'bg-warn-soft text-warn')}>{alerts.length}</em>
                     )}
                     {to.endsWith('stock-counts') && countAlerts.length > 0 && (
-                      <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', section === 'stock-counts' ? 'bg-brand/15 text-brand-ink' : 'bg-bad-soft text-bad')}>{countAlerts.length}</em>
+                      <em className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-bold not-italic', collapsed && 'lg:absolute lg:top-0.5 lg:right-1 lg:h-4 lg:min-w-4 lg:px-1 lg:text-[10px]', section === 'stock-counts' ? 'bg-white/20 text-on-brand' : 'bg-bad-soft text-bad')}>{countAlerts.length}</em>
                     )}
                   </>
                 )}
@@ -151,23 +197,23 @@ export default function AdminLayout() {
           </div>
         ))}
         <div className="mt-auto pt-4">
-          <Link to="/admin/profile" className="flex items-center gap-2.5 rounded-[12px] border border-line bg-surface-2 p-2.5 transition-colors hover:bg-surface-3">
+          <Link to="/admin/profile" title={collapsed ? user.name : undefined} aria-label={collapsed ? 'Profile' : undefined} className={cn('flex items-center gap-2.5 rounded-[12px] border border-line bg-surface-2 p-2.5 transition-colors hover:bg-surface-3', collapsed && 'lg:justify-center lg:border-transparent lg:bg-transparent lg:p-1')}>
             <Avatar user={user} size={34} />
-            <span className="min-w-0 flex-1">
+            <span className={cn('min-w-0 flex-1', collapsed && 'lg:hidden')}>
               <b className="block truncate text-[13.5px] font-semibold">{user.name}</b>
               <small className="text-[12px] text-ink-3">Admin · {shop?.name}</small>
             </span>
-            <ChevronRight size={16} className="text-ink-3" />
+            <ChevronRight size={16} className={cn('text-ink-3', collapsed && 'lg:hidden')} />
           </Link>
         </div>
       </aside>
       {drawer && <div className="animate-fade fixed inset-0 z-30 bg-scrim lg:hidden" onClick={() => setDrawer(false)} />}
 
       {/* Main */}
-      <main className="min-w-0 px-4 pb-12 sm:px-6 lg:px-8">
+      <main className={cn('min-w-0 px-4 pb-12 transition-[margin] duration-200 sm:px-6 lg:px-8', collapsed ? 'lg:ml-[76px]' : 'lg:ml-[260px]')}>
         <header className="sticky top-0 z-20 flex items-center gap-2.5 bg-bg pt-[calc(18px+env(safe-area-inset-top))] pb-4" ref={pop.ref}>
           <IconButton icon={Menu} label="Open menu" size={38} className="lg:hidden" onClick={() => setDrawer(true)} />
-          <h1 className="mr-auto truncate text-[20px] font-bold sm:text-[22px]">{TITLES[section] || ''}</h1>
+          <h1 className="mr-auto truncate text-[17px] font-semibold">{TITLES[section] || ''}</h1>
           <label className="relative hidden w-[min(280px,28vw)] lg:block">
             <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-3" />
             <input onKeyDown={onSearch} placeholder="Search products or receipts" aria-label="Search products or receipts" className="input h-10 pr-12 pl-9" />

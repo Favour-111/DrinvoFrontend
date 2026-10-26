@@ -16,6 +16,7 @@ export {
   CalendarDays,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ClipboardCheck,
   ClipboardList,
@@ -73,4 +74,6 @@ export {
   X,
   CupSoda as Bottle,
   Home,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';

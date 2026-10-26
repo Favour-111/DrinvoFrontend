@@ -59,16 +59,16 @@ export function Avatar({ user, size = 38 }) {
   );
 }
 
-export function Logo({ className, light }) {
+export function Logo({ className, light, compact }) {
   return (
-    <span className={cn('flex items-center gap-2.5 text-[21px] font-extrabold tracking-[-0.035em]', light ? 'text-white' : 'text-ink', className)}>
+    <span className={cn('flex items-center gap-2.5 text-[21px] font-extrabold tracking-[-0.035em]', light ? 'text-white' : 'text-ink', className)} aria-label={compact ? 'Drinvo' : undefined}>
       <span className="grid size-8 place-items-center rounded-[10px] bg-brand">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M9.5 2.5h5v3l2 3.2c.3.5.5 1.1.5 1.7V19a2.5 2.5 0 0 1-2.5 2.5h-5A2.5 2.5 0 0 1 7 19v-8.6c0-.6.2-1.2.5-1.7l2-3.2z" fill="#fff" />
           <path d="M7 13.5h10" stroke="#047857" strokeWidth="2" />
         </svg>
       </span>
-      Drinvo
+      {!compact && 'Drinvo'}
     </span>
   );
 }
